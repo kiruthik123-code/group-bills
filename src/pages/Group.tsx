@@ -341,6 +341,7 @@ const GroupPage = () => {
   }
   const isCreator = user && group && group.created_by === user.id;
   const inviteUrl = group?.invite_code ? group.invite_link || `https://splitstuff.app/join/${group.invite_code}` : null;
+
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!groupId || !user) throw new Error("Missing context");
@@ -351,18 +352,15 @@ const GroupPage = () => {
         code += chars[Math.floor(Math.random() * chars.length)];
       }
       const link = `https://splitstuff.app/join/${code}`;
-      const {
-        error
-      } = await supabase.from("groups").update({
-        invite_code: code,
-        invite_link: link
-      }).eq("id", groupId).eq("created_by", user.id);
+      const { error } = await supabase
+        .from("groups")
+        .update({ invite_code: code, invite_link: link })
+        .eq("id", groupId)
+        .eq("created_by", user.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["group", groupId]
-      });
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
       toast({
         title: "Invite created",
         description: "You can now share this link or code."
@@ -371,6 +369,38 @@ const GroupPage = () => {
     onError: (error: any) => {
       toast({
         title: "Could not generate invite",
+        description: error.message ?? "Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberUserId: string) => {
+      if (!groupId || !user) throw new Error("Missing context");
+      if (!isCreator) throw new Error("Only the group creator can remove members.");
+
+      const { error } = await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", memberUserId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group-members", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["settlements", groupId] });
+      toast({
+        title: "Member removed",
+        description: "The member has been removed from this group."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not remove member",
         description: error.message ?? "Please try again.",
         variant: "destructive"
       });
@@ -479,26 +509,60 @@ const GroupPage = () => {
         <section>
           <Card className="p-4 rounded-2xl border-0 shadow-md">
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">Members</h2>
-            {members && members.length > 0 ? <ul className="space-y-3 text-sm">
-                {[...(members as any[])].map(m => {
-              const baseName = m.full_name || m.user_id;
-              const isYou = user && m.user_id === user.id;
-              const displayName = isYou ? `${baseName} (You)` : baseName;
-              const initials = String(baseName || "?").split(" ").filter(Boolean).map(part => part[0]).join("").toUpperCase();
-              const joinedAt = m.joined_at ? new Date(m.joined_at).toLocaleDateString() : undefined;
-              return <li key={m.user_id} className="flex items-center justify-between gap-3">
+            {members && members.length > 0 ? (
+              <ul className="space-y-3 text-sm">
+                {[...(members as any[])].map((m) => {
+                  const baseName = m.full_name || m.user_id;
+                  const isYou = user && m.user_id === user.id;
+                  const displayName = isYou ? `${baseName} (You)` : baseName;
+                  const initials = String(baseName || "?")
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((part) => part[0])
+                    .join("")
+                    .toUpperCase();
+                  const joinedAt = m.joined_at
+                    ? new Date(m.joined_at).toLocaleDateString()
+                    : undefined;
+
+                  return (
+                    <li
+                      key={m.user_id}
+                      className="flex items-center justify-between gap-3"
+                   >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>{initials || "?"}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium leading-none text-foreground">{displayName}</p>
-                          {joinedAt && <p className="mt-0.5 text-xs text-muted-foreground">Joined {joinedAt}</p>}
+                          <p className="font-medium leading-none text-foreground">
+                            {displayName}
+                          </p>
+                          {joinedAt && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Joined {joinedAt}
+                            </p>
+                          )}
                         </div>
                       </div>
-                    </li>;
-            })}
-              </ul> : <p className="text-sm text-muted-foreground">No members yet.</p>}
+
+                      {isCreator && !isYou && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={removeMemberMutation.isPending}
+                          onClick={() => removeMemberMutation.mutate(m.user_id)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No members yet.</p>
+            )}
           </Card>
         </section>
 
