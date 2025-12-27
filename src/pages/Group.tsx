@@ -408,9 +408,18 @@ const GroupPage = () => {
     }
   };
   return <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
-      <header className="bg-transparent px-4 pt-10 pb-2">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/")}>{"<-"} Back</Button>
-        <h1 className="mt-3 text-lg font-extrabold text-foreground mx-[100px]">{group?.name ?? "Group"}</h1>
+      <header className="relative bg-transparent px-4 pt-10 pb-2 flex items-center justify-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/")}
+          className="absolute left-4"
+        >
+          {"<-"} Back
+        </Button>
+        <h1 className="mt-3 text-lg font-extrabold text-foreground text-center">
+          {group?.name ?? "Group"}
+        </h1>
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 pb-20">
