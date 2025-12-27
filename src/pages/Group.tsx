@@ -350,19 +350,15 @@ const GroupPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/70 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")}>{"<-"} Back</Button>
-            <h1 className="mt-2 text-lg font-semibold">{group?.name ?? "Group"}</h1>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
+      <header className="bg-transparent px-4 pt-10 pb-2">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/")}>{"<-"} Back</Button>
+        <h1 className="mt-3 text-lg font-extrabold text-foreground">{group?.name ?? "Group"}</h1>
       </header>
 
-      <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+      <main className="mx-auto max-w-4xl space-y-6 px-4 pb-20">
         <section className="grid gap-4 md:grid-cols-2">
-          <Card className="p-4">
+          <Card className="p-4 rounded-2xl border-0 shadow-md">
             <h2 className="mb-2 text-sm font-medium text-muted-foreground">Balances</h2>
             {balances && Object.keys(balances).length > 0 ? (
               <ul className="space-y-1 text-sm">
@@ -372,7 +368,7 @@ const GroupPage = () => {
                     <span
                       className={
                         value > 0
-                          ? "font-semibold text-emerald-600"
+                          ? "font-semibold text-success"
                           : value < 0
                           ? "font-semibold text-destructive"
                           : "text-muted-foreground"
@@ -444,7 +440,7 @@ const GroupPage = () => {
         </section>
 
         <section>
-          <Card className="p-4">
+          <Card className="p-4 rounded-2xl border-0 shadow-md">
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">Members</h2>
             {members && members.length > 0 ? (
               <ul className="space-y-3 text-sm">
@@ -467,7 +463,7 @@ const GroupPage = () => {
                           <AvatarFallback>{initials || "?"}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium leading-none">{displayName}</p>
+                          <p className="font-medium leading-none text-foreground">{displayName}</p>
                           {joinedAt && (
                             <p className="mt-0.5 text-xs text-muted-foreground">Joined {joinedAt}</p>
                           )}

@@ -132,27 +132,54 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/70 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-semibold">Your profile</h1>
-            <p className="text-xs text-muted-foreground">Manage your name and see your overall balances.</p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/">Back to dashboard</Link>
-            </Button>
-            <span>{user.email}</span>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
+      <header className="bg-transparent px-4 pt-10 pb-4">
+        <h1 className="text-xl font-extrabold text-foreground">Profile</h1>
       </header>
 
-      <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card>
+      <main className="mx-auto max-w-md space-y-6 px-4 pb-20">
+        <section className="flex flex-col items-center gap-3">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-card shadow-md">
+            <span className="text-3xl" aria-hidden>
+              😎
+            </span>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-semibold text-foreground">{profile?.full_name || "Your name"}</p>
+            <p className="text-xs text-muted-foreground">{user.email}</p>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <Card className="rounded-2xl border-0 shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Transaction summary</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {balances ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">You owe</span>
+                    <span className="font-semibold text-destructive">
+                      {currency.format(Math.max(balances.totalOwed, 0))}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">You're owed</span>
+                    <span className="font-semibold text-success">
+                      {currency.format(Math.max(balances.totalOwedToYou, 0))}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Calculating balances...</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Profile details</CardTitle>
+              <CardTitle className="text-base font-semibold text-foreground">Profile details</CardTitle>
               <CardDescription>Update how your name appears to others in groups.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -171,44 +198,17 @@ const ProfilePage = () => {
                         <FormItem>
                           <FormLabel>Full name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Your name" autoComplete="name" {...field} />
+                            <Input placeholder="Your name" autoComplete="name" {...field} className="rounded-2xl" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <Button type="submit" size="sm" disabled={updateProfile.isPending}>
+                    <Button type="submit" size="sm" disabled={updateProfile.isPending} className="rounded-[999px]">
                       Save changes
                     </Button>
                   </form>
                 </Form>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Transaction summary</CardTitle>
-              <CardDescription>Your overall balances across all groups.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {balances ? (
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">You owe</span>
-                    <span className="font-semibold text-destructive">
-                      {currency.format(Math.max(balances.totalOwed, 0))}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">You're owed</span>
-                    <span className="font-semibold text-success">
-                      {currency.format(Math.max(balances.totalOwedToYou, 0))}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Calculating balances...</p>
               )}
             </CardContent>
           </Card>
