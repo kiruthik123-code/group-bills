@@ -139,7 +139,10 @@ const Index = () => {
             <p className="text-xs text-muted-foreground">Smart expense splitting and debt tracking</p>
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">{user.email}</span>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/profile">Profile</Link>
+            </Button>
+            <span className="text-xs text-muted-foreground">{user.email}</span>
             <Button size="sm" variant="outline" onClick={handleLogout}>
               Log out
             </Button>

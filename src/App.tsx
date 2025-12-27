@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
 import GroupPage from "./pages/Group";
 import JoinGroupPage from "./pages/JoinGroup";
+import ProfilePage from "./pages/Profile";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<Index />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/groups/:groupId" element={<GroupPage />} />
             <Route path="/join" element={<JoinGroupPage />} />
             <Route path="/join/:code" element={<JoinGroupPage />} />
