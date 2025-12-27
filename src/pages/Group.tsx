@@ -28,7 +28,7 @@ const GroupPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
 
   const { data: group } = useQuery({
@@ -42,7 +42,7 @@ const GroupPage = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!groupId,
+    enabled: !!groupId && !loading && !!user,
   });
 
   const { data: members } = useQuery({
@@ -56,7 +56,7 @@ const GroupPage = () => {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!groupId,
+    enabled: !!groupId && !loading && !!user,
   });
 
   const { data: expenses } = useQuery({
@@ -70,7 +70,7 @@ const GroupPage = () => {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!groupId,
+    enabled: !!groupId && !loading && !!user,
   });
 
   const { data: settlements } = useQuery({
@@ -84,7 +84,7 @@ const GroupPage = () => {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!groupId,
+    enabled: !!groupId && !loading && !!user,
   });
 
   const memberMap = useMemo(() => {
