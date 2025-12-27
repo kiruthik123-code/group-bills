@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -49,8 +50,9 @@ const GroupPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("group_members")
-        .select("user_id, profiles(full_name, id)")
-        .eq("group_id", groupId);
+        .select("user_id, joined_at, profiles(full_name, id)")
+        .eq("group_id", groupId)
+        .order("joined_at", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
@@ -390,6 +392,46 @@ const GroupPage = () => {
               <p className="text-sm text-muted-foreground">
                 The group creator can generate an invite link to share.
               </p>
+            )}
+          </Card>
+        </section>
+
+        <section>
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Members</h2>
+            {members && members.length > 0 ? (
+              <ul className="space-y-3 text-sm">
+                {[...(members as any[])].map((m) => {
+                  const baseName = m.profiles?.full_name || m.profiles?.id || m.user_id;
+                  const isYou = user && m.user_id === user.id;
+                  const displayName = isYou ? `${baseName} (You)` : baseName;
+                  const initials = String(baseName || "?")
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((part) => part[0])
+                    .join("")
+                    .toUpperCase();
+                  const joinedAt = m.joined_at ? new Date(m.joined_at).toLocaleDateString() : undefined;
+
+                  return (
+                    <li key={m.user_id} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>{initials || "?"}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium leading-none">{displayName}</p>
+                          {joinedAt && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">Joined {joinedAt}</p>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No members yet.</p>
             )}
           </Card>
         </section>
