@@ -437,8 +437,9 @@ const GroupPage = () => {
       handleCopy(inviteUrl, "Invite link");
     }
   };
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
-      <header className="relative bg-transparent px-4 pt-10 pb-2 flex items-center justify-center">
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
+      <header className="relative bg-transparent px-4 pt-6 pb-3 flex items-center justify-center">
         <Button
           variant="ghost"
           size="sm"
@@ -447,62 +448,106 @@ const GroupPage = () => {
         >
           {"<-"} Back
         </Button>
-        <h1 className="mt-3 text-lg font-extrabold text-foreground text-center">
+        <h1 className="text-base font-extrabold text-foreground text-center max-w-[70%] truncate">
           {group?.name ?? "Group"}
         </h1>
       </header>
 
-      <main className="mx-auto max-w-4xl space-y-6 px-4 pb-20">
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card className="p-4 rounded-2xl border-0 shadow-md">
-            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Balances</h2>
-            {balances && Object.keys(balances).length > 0 ? <ul className="space-y-1 text-sm">
-                {Object.entries(balances).map(([userId, value]) => <li key={userId} className="flex items-center justify-between">
-                    <span>{memberMap.get(userId) ?? userId}</span>
-                    <span className={value > 0 ? "font-semibold text-success" : value < 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
+      <main className="mx-auto max-w-md md:max-w-4xl space-y-4 px-4 pb-20">
+        <section className="grid gap-3 md:gap-4 md:grid-cols-2">
+          <Card className="p-3 md:p-4 rounded-2xl border-0 shadow-md">
+            <h2 className="mb-2 text-xs md:text-sm font-medium text-muted-foreground">Balances</h2>
+            {balances && Object.keys(balances).length > 0 ? (
+              <ul className="space-y-1 text-xs md:text-sm">
+                {Object.entries(balances).map(([userId, value]) => (
+                  <li
+                    key={userId}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="truncate max-w-[55%]">
+                      {memberMap.get(userId) ?? userId}
+                    </span>
+                    <span
+                      className={
+                        value > 0
+                          ? "font-semibold text-success"
+                          : value < 0
+                            ? "font-semibold text-destructive"
+                            : "text-muted-foreground"
+                      }
+                    >
                       {value > 0 && "+"}
                       {currency.format(value)}
                     </span>
-                  </li>)}
-              </ul> : <p className="text-sm text-muted-foreground">No balances yet. Add an expense to get started.</p>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs md:text-sm text-muted-foreground">
+                No balances yet. Add an expense to get started.
+              </p>
+            )}
           </Card>
 
-          <Card className="p-4 space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Invite people</h2>
-            {inviteUrl && group?.invite_code ? <div className="space-y-2 text-sm">
+          <Card className="p-3 md:p-4 space-y-2 md:space-y-3 rounded-2xl border-0 shadow-md">
+            <h2 className="text-xs md:text-sm font-medium text-muted-foreground">Invite people</h2>
+            {inviteUrl && group?.invite_code ? (
+              <div className="space-y-2 text-xs md:text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground">Share this link</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Input readOnly value={inviteUrl} className="text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => handleCopy(inviteUrl, "Invite link")}>
-                      Copy
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleShare}>
-                      Share
-                    </Button>
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Share this link</p>
+                  <div className="mt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <Input readOnly value={inviteUrl} className="text-[10px] md:text-xs" />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopy(inviteUrl, "Invite link")}
+                      >
+                        Copy
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleShare}>
+                        Share
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div>
-                  <p className="mt-2 text-xs text-muted-foreground">Or share this code</p>
+                  <p className="mt-2 text-[10px] md:text-xs text-muted-foreground">
+                    Or share this code
+                  </p>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="rounded-md bg-muted px-2 py-1 text-xs font-mono tracking-widest">
+                    <span className="rounded-md bg-muted px-2 py-1 text-[10px] md:text-xs font-mono tracking-widest">
                       {group.invite_code}
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => handleCopy(group.invite_code!, "Invite code")}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopy(group.invite_code!, "Invite code")}
+                    >
                       Copy
                     </Button>
                   </div>
                 </div>
-              </div> : isCreator ? <div className="space-y-2 text-sm">
+              </div>
+            ) : isCreator ? (
+              <div className="space-y-2 text-xs md:text-sm">
                 <p className="text-muted-foreground">
                   Generate an invite link and code you can share with others to join this group.
                 </p>
-                <Button size="sm" className="w-full" disabled={inviteMutation.isPending} onClick={() => inviteMutation.mutate()}>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={inviteMutation.isPending}
+                  onClick={() => inviteMutation.mutate()}
+                >
                   Generate invite
                 </Button>
-              </div> : <p className="text-sm text-muted-foreground">
+              </div>
+            ) : (
+              <p className="text-xs md:text-sm text-muted-foreground">
                 The group creator can generate an invite link to share.
-              </p>}
+              </p>
+            )}
           </Card>
         </section>
 
