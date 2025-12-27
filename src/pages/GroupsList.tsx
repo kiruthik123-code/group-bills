@@ -112,7 +112,7 @@ const GroupsListPage = () => {
                       <p
                         className={
                           isPositive
-                            ? "text-emerald-500 font-semibold"
+                            ? "text-success font-semibold"
                             : isNegative
                             ? "text-destructive font-semibold"
                             : "text-muted-foreground"
