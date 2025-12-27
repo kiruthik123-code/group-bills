@@ -339,8 +339,14 @@ const GroupPage = () => {
     navigate("/");
     return null;
   }
+
   const isCreator = user && group && group.created_by === user.id;
   const inviteUrl = group?.invite_code ? group.invite_link || `https://splitstuff.app/join/${group.invite_code}` : null;
+
+  const isMember = useMemo(() => {
+    if (!members || !user) return undefined;
+    return (members as any[]).some((m) => m.user_id === user.id);
+  }, [members, user]);
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
@@ -437,6 +443,25 @@ const GroupPage = () => {
       handleCopy(inviteUrl, "Invite link");
     }
   };
+  if (!loading && user && members && members.length === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans px-4">
+        <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center shadow-md">
+          <h1 className="text-lg font-semibold text-foreground">Not a member of this group</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You don&apos;t have access to view this group. Ask the creator to invite you, or go back to your groups.
+          </p>
+          <Button
+            className="mt-4 w-full rounded-[999px]"
+            onClick={() => navigate("/")}
+          >
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
       <header className="relative bg-transparent px-4 pt-6 pb-3 flex items-center justify-center">
@@ -631,89 +656,149 @@ const GroupPage = () => {
           <Card className="p-4">
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">Add expense</h2>
             <Form {...form}>
-              <form className="space-y-3" onSubmit={form.handleSubmit(values => {
-              addExpense.mutate(values);
-            })}>
-                <FormField control={form.control} name="title" render={({
-                field
-              }) => <FormItem>
+              <form
+                className="space-y-3"
+                onSubmit={form.handleSubmit((values) => {
+                  addExpense.mutate(values);
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Title</FormLabel>
                       <FormControl>
                         <Input placeholder="Dinner, Taxi, Groceries" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                <FormField control={form.control} name="amount" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Amount (₹)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                <FormField control={form.control} name="paidBy" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="paidBy"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Paid by</FormLabel>
                       <FormControl>
                         <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" {...field}>
                           <option value="">Select member</option>
-                          {(members ?? []).map((m: any) => <option key={m.user_id} value={m.user_id}>
+                          {(members ?? []).map((m: any) => (
+                            <option key={m.user_id} value={m.user_id}>
                               {memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id)}
-                            </option>)}
+                            </option>
+                          ))}
                         </select>
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                <FormField control={form.control} name="splitType" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="splitType"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Split type</FormLabel>
                       <div className="flex gap-2">
-                        <Button type="button" variant={field.value === "normal" ? "default" : "outline"} size="sm" onClick={() => field.onChange("normal")}>
+                        <Button
+                          type="button"
+                          variant={field.value === "normal" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => field.onChange("normal")}
+                        >
                           Normal split
                         </Button>
-                        <Button type="button" variant={field.value === "custom" ? "default" : "outline"} size="sm" onClick={() => field.onChange("custom")}>
+                        <Button
+                          type="button"
+                          variant={field.value === "custom" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => field.onChange("custom")}
+                        >
                           Custom split
                         </Button>
                       </div>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                {form.watch("splitType") === "custom" && <div className="space-y-2 rounded-md border border-dashed border-input p-3">
+                {form.watch("splitType") === "custom" && (
+                  <div className="space-y-2 rounded-md border border-dashed border-input p-3">
                     <p className="text-xs text-muted-foreground">
                       Enter the percentage each person should pay. Total should be 100%.
                     </p>
                     <div className="space-y-1 text-xs">
                       {(members ?? []).map((m: any) => {
-                    const name = memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id);
-                    return <div key={m.user_id} className="flex items-center gap-2">
+                        const name =
+                          memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id);
+                        return (
+                          <div key={m.user_id} className="flex items-center gap-2">
                             <span className="w-32 truncate" title={name}>
                               {name}
                             </span>
-                            <Input type="number" min={0} max={100} step={0.01} className="h-8 w-24 text-xs" value={customPercents[m.user_id] ?? ""} onChange={e => setCustomPercents(prev => ({
-                        ...prev,
-                        [m.user_id]: e.target.value
-                      }))} />
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              className="h-8 w-24 text-xs"
+                              value={customPercents[m.user_id] ?? ""}
+                              onChange={(e) =>
+                                setCustomPercents((prev) => ({
+                                  ...prev,
+                                  [m.user_id]: e.target.value,
+                                }))
+                              }
+                            />
                             <span>%</span>
-                          </div>;
-                  })}
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>}
+                  </div>
+                )}
 
-                <FormField control={form.control} name="notes" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Notes (optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., Included drinks" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
                 <Button type="submit" className="w-full" disabled={addExpense.isPending}>
                   Add expense
@@ -726,4 +811,5 @@ const GroupPage = () => {
     </div>
   );
 };
+
 export default GroupPage;
