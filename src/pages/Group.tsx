@@ -50,9 +50,10 @@ const GroupPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("group_members")
-        .select("user_id, joined_at, profiles(full_name, id)")
+        .select("user_id, joined_at")
         .eq("group_id", groupId)
         .order("joined_at", { ascending: true });
+
       if (error) throw error;
       return data ?? [];
     },
