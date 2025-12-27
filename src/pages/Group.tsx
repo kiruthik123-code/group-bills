@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -20,6 +20,7 @@ const expenseSchema = z.object({
   amount: z.coerce.number().positive("Amount must be greater than 0"),
   paidBy: z.string().uuid("Select who paid"),
   notes: z.string().trim().max(500).optional(),
+  splitType: z.enum(["normal", "custom"], { required_error: "Choose a split type" }),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -158,8 +159,10 @@ const GroupPage = () => {
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
-    defaultValues: { title: "", amount: 0, paidBy: user?.id ?? "", notes: "" },
+    defaultValues: { title: "", amount: 0, paidBy: user?.id ?? "", notes: "", splitType: "normal" },
   });
+
+  const [customPercents, setCustomPercents] = useState<Record<string, string>>({});
 
   const addExpense = useMutation({
     mutationFn: async (values: ExpenseFormValues) => {
@@ -167,7 +170,39 @@ const GroupPage = () => {
       const participants = members ?? [];
       if (participants.length === 0) throw new Error("No group members to split with");
 
-      const equalShare = Number((values.amount / participants.length).toFixed(2));
+      let splits: { expense_id: string; user_id: string; share_amount: number }[] = [];
+
+      if (values.splitType === "normal") {
+        const equalShare = Number((values.amount / participants.length).toFixed(2));
+        splits = participants.map((p: any) => ({
+          expense_id: "",
+          user_id: p.user_id,
+          share_amount: equalShare,
+        }));
+      } else {
+        const percents: { user_id: string; percent: number }[] = [];
+        (participants as any[]).forEach((p) => {
+          const raw = customPercents[p.user_id];
+          const num = raw ? Number(raw) : 0;
+          if (num > 0) {
+            percents.push({ user_id: p.user_id, percent: num });
+          }
+        });
+
+        const totalPercent = percents.reduce((sum, p) => sum + p.percent, 0);
+        if (totalPercent <= 0) {
+          throw new Error("Enter percentages for at least one member.");
+        }
+        if (Math.abs(totalPercent - 100) > 0.5) {
+          throw new Error("Custom percentages must add up to 100% (allowing small rounding).");
+        }
+
+        splits = percents.map((p) => ({
+          expense_id: "",
+          user_id: p.user_id,
+          share_amount: Number(((values.amount * p.percent) / 100).toFixed(2)),
+        }));
+      }
 
       const { data: expense, error } = await supabase
         .from("expenses")
@@ -182,12 +217,8 @@ const GroupPage = () => {
         .single();
       if (error) throw error;
 
-      const splits = participants.map((p: any) => ({
-        expense_id: expense.id,
-        user_id: p.user_id,
-        share_amount: equalShare,
-      }));
-      const { error: splitError } = await supabase.from("expense_splits").insert(splits);
+      const splitsWithExpenseId = splits.map((s) => ({ ...s, expense_id: expense.id }));
+      const { error: splitError } = await supabase.from("expense_splits").insert(splitsWithExpenseId);
       if (splitError) throw splitError;
     },
     onSuccess: () => {
@@ -461,7 +492,7 @@ const GroupPage = () => {
           </Card>
 
           <Card className="p-4">
-            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Add expense (equal split)</h2>
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Add expense</h2>
             <Form {...form}>
               <form
                 className="space-y-3"
@@ -520,6 +551,67 @@ const GroupPage = () => {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="splitType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Split type</FormLabel>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={field.value === "normal" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => field.onChange("normal")}
+                        >
+                          Normal split
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={field.value === "custom" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => field.onChange("custom")}
+                        >
+                          Custom split
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("splitType") === "custom" && (
+                  <div className="space-y-2 rounded-md border border-dashed border-input p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Enter the percentage each person should pay. Total should be 100%.
+                    </p>
+                    <div className="space-y-1 text-xs">
+                      {(members ?? []).map((m: any) => {
+                        const name = memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id);
+                        return (
+                          <div key={m.user_id} className="flex items-center gap-2">
+                            <span className="w-32 truncate" title={name}>
+                              {name}
+                            </span>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              className="h-8 w-24 text-xs"
+                              value={customPercents[m.user_id] ?? ""}
+                              onChange={(e) =>
+                                setCustomPercents((prev) => ({ ...prev, [m.user_id]: e.target.value }))
+                              }
+                            />
+                            <span>%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <FormField
                   control={form.control}
