@@ -1,0 +1,406 @@
+import { useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+
+const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+
+const expenseSchema = z.object({
+  title: z.string().trim().nonempty("Title is required"),
+  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  paidBy: z.string().uuid("Select who paid"),
+  notes: z.string().trim().max(500).optional(),
+});
+
+type ExpenseFormValues = z.infer<typeof expenseSchema>;
+
+const GroupPage = () => {
+  const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const { data: group } = useQuery({
+    queryKey: ["group", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("groups").select("id, name, created_by").eq("id", groupId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: members } = useQuery({
+    queryKey: ["group-members", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_members")
+        .select("user_id, profiles(full_name, id)")
+        .eq("group_id", groupId);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: expenses } = useQuery({
+    queryKey: ["expenses", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expenses")
+        .select("id, title, amount, expense_date, paid_by, notes, expense_splits(user_id, share_amount)")
+        .eq("group_id", groupId)
+        .order("expense_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: settlements } = useQuery({
+    queryKey: ["settlements", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("settlements")
+        .select("id, payer_id, receiver_id, amount, status")
+        .eq("group_id", groupId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!groupId,
+  });
+
+  const memberMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (members ?? []).forEach((m: any) => {
+      const name = m.profiles?.full_name || m.profiles?.id || m.user_id;
+      map.set(m.user_id, name);
+    });
+    return map;
+  }, [members]);
+
+  const balances = useMemo(() => {
+    const byUser: Record<string, number> = {};
+    (members ?? []).forEach((m: any) => {
+      byUser[m.user_id] = 0;
+    });
+
+    (expenses ?? []).forEach((exp: any) => {
+      const splits = exp.expense_splits ?? [];
+      splits.forEach((split: any) => {
+        if (!byUser.hasOwnProperty(split.user_id)) return;
+        byUser[split.user_id] -= split.share_amount;
+        if (byUser.hasOwnProperty(exp.paid_by)) {
+          byUser[exp.paid_by] += split.share_amount;
+        }
+      });
+    });
+
+    (settlements ?? []).forEach((s: any) => {
+      if (s.status !== "settled") return;
+      if (!byUser.hasOwnProperty(s.payer_id) || !byUser.hasOwnProperty(s.receiver_id)) return;
+      byUser[s.payer_id] += s.amount;
+      byUser[s.receiver_id] -= s.amount;
+    });
+
+    return byUser;
+  }, [members, expenses, settlements]);
+
+  const recommendedTransfers = useMemo(() => {
+    if (!balances) return [];
+    const creditors: { userId: string; amount: number }[] = [];
+    const debtors: { userId: string; amount: number }[] = [];
+
+    Object.entries(balances).forEach(([userId, value]) => {
+      if (value > 0.01) creditors.push({ userId, amount: value });
+      else if (value < -0.01) debtors.push({ userId, amount: -value });
+    });
+
+    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
+
+    const transfers: { from: string; to: string; amount: number }[] = [];
+    let i = 0,
+      j = 0;
+
+    while (i < debtors.length && j < creditors.length) {
+      const d = debtors[i];
+      const c = creditors[j];
+      const amount = Math.min(d.amount, c.amount);
+      transfers.push({ from: d.userId, to: c.userId, amount });
+      d.amount -= amount;
+      c.amount -= amount;
+      if (d.amount < 0.01) i++;
+      if (c.amount < 0.01) j++;
+    }
+    return transfers;
+  }, [balances]);
+
+  const form = useForm<ExpenseFormValues>({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: { title: "", amount: 0, paidBy: user?.id ?? "", notes: "" },
+  });
+
+  const addExpense = useMutation({
+    mutationFn: async (values: ExpenseFormValues) => {
+      if (!groupId) throw new Error("Missing group id");
+      const participants = members ?? [];
+      if (participants.length === 0) throw new Error("No group members to split with");
+
+      const equalShare = Number((values.amount / participants.length).toFixed(2));
+
+      const { data: expense, error } = await supabase
+        .from("expenses")
+        .insert({
+          group_id: groupId,
+          title: values.title,
+          amount: values.amount,
+          paid_by: values.paidBy,
+          notes: values.notes || null,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      const splits = participants.map((p: any) => ({
+        expense_id: expense.id,
+        user_id: p.user_id,
+        share_amount: equalShare,
+      }));
+      const { error: splitError } = await supabase.from("expense_splits").insert(splits);
+      if (splitError) throw splitError;
+    },
+    onSuccess: () => {
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      toast({ title: "Expense added", description: "Balances updated for this group." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not add expense",
+        description: error.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const settleMutation = useMutation({
+    mutationFn: async ({ from, to, amount }: { from: string; to: string; amount: number }) => {
+      if (!groupId) throw new Error("Missing group id");
+      const { error } = await supabase.from("settlements").insert({
+        group_id: groupId,
+        payer_id: from,
+        receiver_id: to,
+        amount,
+        status: "settled",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settlements", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      toast({ title: "Settlement recorded", description: "Balances updated." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not record settlement",
+        description: error.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (!groupId) {
+    navigate("/");
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card/70 backdrop-blur">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+          <div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")}>{"<-"} Back</Button>
+            <h1 className="mt-2 text-lg font-semibold">{group?.name ?? "Group"}</h1>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+        <section className="grid gap-4 md:grid-cols-2">
+          <Card className="p-4">
+            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Balances</h2>
+            {balances && Object.keys(balances).length > 0 ? (
+              <ul className="space-y-1 text-sm">
+                {Object.entries(balances).map(([userId, value]) => (
+                  <li key={userId} className="flex items-center justify-between">
+                    <span>{memberMap.get(userId) ?? userId}</span>
+                    <span
+                      className={
+                        value > 0 ? "font-semibold text-emerald-600" : value < 0 ? "font-semibold text-destructive" : "text-muted-foreground"
+                      }
+                    >
+                      {value > 0 && "+"}
+                      {currency.format(value)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No balances yet. Add an expense to get started.</p>
+            )}
+          </Card>
+
+          <Card className="p-4">
+            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Suggested settlements</h2>
+            {recommendedTransfers.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {recommendedTransfers.map((t, idx) => (
+                  <li key={idx} className="flex items-center justify-between">
+                    <span>
+                      {memberMap.get(t.from) ?? t.from} pays {memberMap.get(t.to) ?? t.to}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{currency.format(t.amount)}</span>
+                      {user && user.id === t.from && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => settleMutation.mutate({ from: t.from, to: t.to, amount: t.amount })}
+                        >
+                          Mark settled
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Everyone is settled up in this group.</p>
+            )}
+          </Card>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Expenses</h2>
+            {expenses && expenses.length > 0 ? (
+              <ul className="space-y-3 text-sm">
+                {expenses.map((exp: any) => (
+                  <li key={exp.id} className="flex items-start justify-between gap-4 border-b pb-2 last:border-b-0">
+                    <div>
+                      <p className="font-medium">{exp.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {currency.format(exp.amount)} • {new Date(exp.expense_date).toLocaleDateString()} • Paid by{" "}
+                        {memberMap.get(exp.paid_by) ?? exp.paid_by}
+                      </p>
+                      {exp.notes && <p className="mt-1 text-xs text-muted-foreground">{exp.notes}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No expenses yet.</p>
+            )}
+          </Card>
+
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Add expense (equal split)</h2>
+            <Form {...form}>
+              <form
+                className="space-y-3"
+                onSubmit={form.handleSubmit((values) => {
+                  addExpense.mutate(values);
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Dinner, Taxi, Groceries" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount (₹)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="paidBy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Paid by</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          {...field}
+                        >
+                          <option value="">Select member</option>
+                          {(members ?? []).map((m: any) => (
+                            <option key={m.user_id} value={m.user_id}>
+                              {memberMap.get(m.user_id) ?? m.user_id}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Included drinks" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit" className="w-full" disabled={addExpense.isPending}>
+                  Add expense
+                </Button>
+              </form>
+            </Form>
+          </Card>
+        </section>
+      </main>
+    </div>
+  );
+};
+
+export default GroupPage;
