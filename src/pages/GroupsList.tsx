@@ -79,10 +79,10 @@ const GroupsListPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
       <main className="mx-auto flex max-w-md flex-col pb-20">
-        <header className="px-4 pt-6 pb-4">
-          <h1 className="text-2xl font-extrabold tracking-tight">All Groups</h1>
+        <header className="px-4 pt-10 pb-4">
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">All Groups</h1>
         </header>
 
         <section className="flex-1 px-4">
@@ -103,7 +103,7 @@ const GroupsListPage = () => {
                     onClick={() => navigate(`/groups/${group.id}`)}
                   >
                     <div>
-                      <p className="text-sm font-semibold">{group.name}</p>
+                      <p className="text-sm font-semibold text-foreground">{group.name}</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         Created {new Date(group.created_at).toLocaleDateString()}
                       </p>
@@ -127,19 +127,27 @@ const GroupsListPage = () => {
               })}
             </div>
           ) : (
-            <Card className="p-4 text-sm text-muted-foreground">No groups yet. Create one from Home.</Card>
+            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm">
+              No groups yet. Create one from Home.
+            </Card>
           )}
         </section>
 
-        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 backdrop-blur">
-          <div className="mx-auto flex max-w-md items-center justify-around px-6 py-2 text-xs">
-            <button className="flex flex-col items-center gap-0.5 text-muted-foreground" onClick={() => navigate("/")}>
+        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-6px_16px_rgba(0,0,0,0.06)] backdrop-blur">
+          <div className="mx-auto flex max-w-md items-center justify-around px-8 py-3 text-[11px] font-medium">
+            <button
+              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              onClick={() => navigate("/")}
+            >
               <span>Home</span>
             </button>
             <button className="flex flex-col items-center gap-0.5 text-primary">
               <span>Groups</span>
             </button>
-            <button className="flex flex-col items-center gap-0.5 text-muted-foreground" onClick={() => navigate("/profile")}>
+            <button
+              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              onClick={() => navigate("/profile")}
+            >
               <span>Profile</span>
             </button>
           </div>

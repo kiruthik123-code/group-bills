@@ -131,18 +131,17 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
       <main className="mx-auto flex max-w-md flex-col pb-20">
-        <header className="px-4 pt-6 pb-4">
-          <p className="text-xs font-medium text-muted-foreground">Hey there! 👋</p>
-          <h1 className="text-2xl font-extrabold tracking-tight">SplitStuff</h1>
+        <header className="px-4 pt-10 pb-4">
+          <p className="text-sm font-semibold text-foreground">Hey there! 👋</p>
         </header>
 
         <section className="px-4">
-          <Card className="overflow-hidden rounded-3xl border-0 bg-gradient-to-br from-primary/10 via-accent/40 to-primary/5 shadow-md">
+          <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-lg">
             <div className="p-5">
               <p className="text-xs font-medium text-muted-foreground">Total balance</p>
-              <p className="mt-2 text-3xl font-extrabold text-primary">
+              <p className="mt-2 text-3xl font-extrabold text-foreground">
                 {currency.format(Math.max(balances?.totalOwed ?? 0, balances?.totalOwedToYou ?? 0))}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{netSummary}</p>
@@ -152,7 +151,7 @@ const Index = () => {
 
         <section className="mt-6 flex-1 px-4">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Your groups</h2>
+            <h2 className="text-sm font-semibold text-foreground">Your Groups</h2>
           </div>
           {groups && groups.length > 0 ? (
             <div className="space-y-3">
@@ -164,7 +163,7 @@ const Index = () => {
                   onClick={() => navigate(`/groups/${group.id}`)}
                 >
                   <div>
-                    <p className="text-sm font-semibold">{group.name}</p>
+                    <p className="text-sm font-semibold text-foreground">{group.name}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                       Created {new Date(group.created_at).toLocaleDateString()}
                     </p>
@@ -173,7 +172,7 @@ const Index = () => {
               ))}
             </div>
           ) : (
-            <Card className="p-4 text-sm text-muted-foreground">
+            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm">
               You don't have any groups yet. Create one to start splitting expenses.
             </Card>
           )}
@@ -182,13 +181,13 @@ const Index = () => {
         <button
           type="button"
           onClick={handleCreateGroup}
-          className="fixed bottom-24 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-accent text-primary-foreground shadow-lg"
+          className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-secondary text-primary-foreground shadow-xl"
         >
           +
         </button>
 
-        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 backdrop-blur">
-          <div className="mx-auto flex max-w-md items-center justify-around px-6 py-2 text-xs">
+        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-6px_16px_rgba(0,0,0,0.06)] backdrop-blur">
+          <div className="mx-auto flex max-w-md items-center justify-around px-8 py-3 text-[11px] font-medium">
             <button className="flex flex-col items-center gap-0.5 text-primary">
               <span>Home</span>
             </button>
