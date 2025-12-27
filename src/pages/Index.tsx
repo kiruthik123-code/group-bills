@@ -192,10 +192,16 @@ const Index = () => {
             <button className="flex flex-col items-center gap-0.5 text-primary">
               <span>Home</span>
             </button>
-            <button className="flex flex-col items-center gap-0.5 text-muted-foreground" onClick={() => navigate("/")}>
+            <button
+              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              onClick={() => navigate("/groups")}
+            >
               <span>Groups</span>
             </button>
-            <button className="flex flex-col items-center gap-0.5 text-muted-foreground" onClick={() => navigate("/profile")}>
+            <button
+              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              onClick={() => navigate("/profile")}
+            >
               <span>Profile</span>
             </button>
           </div>

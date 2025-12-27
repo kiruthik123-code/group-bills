@@ -9,6 +9,7 @@ import AuthPage from "./pages/Auth";
 import GroupPage from "./pages/Group";
 import JoinGroupPage from "./pages/JoinGroup";
 import ProfilePage from "./pages/Profile";
+import GroupsListPage from "./pages/GroupsList";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<Index />} />
+            <Route path="/groups" element={<GroupsListPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/groups/:groupId" element={<GroupPage />} />
             <Route path="/join" element={<JoinGroupPage />} />
