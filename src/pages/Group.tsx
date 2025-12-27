@@ -33,7 +33,11 @@ const GroupPage = () => {
   const { data: group } = useQuery({
     queryKey: ["group", groupId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("id, name, created_by").eq("id", groupId).maybeSingle();
+      const { data, error } = await supabase
+        .from("groups")
+        .select("id, name, created_by, invite_code, invite_link")
+        .eq("id", groupId)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -227,6 +231,73 @@ const GroupPage = () => {
     return null;
   }
 
+  const isCreator = user && group && group.created_by === user.id;
+  const inviteUrl = group?.invite_code
+    ? group.invite_link || `https://splitstuff.app/join/${group.invite_code}`
+    : null;
+
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupId || !user) throw new Error("Missing context");
+      if (!isCreator) throw new Error("Only the group creator can generate an invite.");
+
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let code = "";
+      for (let i = 0; i < 8; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      const link = `https://splitstuff.app/join/${code}`;
+
+      const { error } = await supabase
+        .from("groups")
+        .update({ invite_code: code, invite_link: link })
+        .eq("id", groupId)
+        .eq("created_by", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
+      toast({ title: "Invite created", description: "You can now share this link or code." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not generate invite",
+        description: error.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCopy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: `${label} copied to clipboard.` });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Your browser blocked clipboard access.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!inviteUrl) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: group?.name ?? "SplitStuff group",
+          text: "Join my SplitStuff group",
+          url: inviteUrl,
+        });
+      } catch {
+        // ignore cancel
+      }
+    } else {
+      handleCopy(inviteUrl, "Invite link");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card/70 backdrop-blur">
@@ -249,7 +320,11 @@ const GroupPage = () => {
                     <span>{memberMap.get(userId) ?? userId}</span>
                     <span
                       className={
-                        value > 0 ? "font-semibold text-emerald-600" : value < 0 ? "font-semibold text-destructive" : "text-muted-foreground"
+                        value > 0
+                          ? "font-semibold text-emerald-600"
+                          : value < 0
+                          ? "font-semibold text-destructive"
+                          : "text-muted-foreground"
                       }
                     >
                       {value > 0 && "+"}
@@ -263,32 +338,56 @@ const GroupPage = () => {
             )}
           </Card>
 
-          <Card className="p-4">
-            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Suggested settlements</h2>
-            {recommendedTransfers.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {recommendedTransfers.map((t, idx) => (
-                  <li key={idx} className="flex items-center justify-between">
-                    <span>
-                      {memberMap.get(t.from) ?? t.from} pays {memberMap.get(t.to) ?? t.to}
+          <Card className="p-4 space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Invite people</h2>
+            {inviteUrl && group?.invite_code ? (
+              <div className="space-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Share this link</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input readOnly value={inviteUrl} className="text-xs" />
+                    <Button size="sm" variant="outline" onClick={() => handleCopy(inviteUrl, "Invite link")}>
+                      Copy
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleShare}>
+                      Share
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="mt-2 text-xs text-muted-foreground">Or share this code</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="rounded-md bg-muted px-2 py-1 text-xs font-mono tracking-widest">
+                      {group.invite_code}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{currency.format(t.amount)}</span>
-                      {user && user.id === t.from && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => settleMutation.mutate({ from: t.from, to: t.to, amount: t.amount })}
-                        >
-                          Mark settled
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopy(group.invite_code!, "Invite code")}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : isCreator ? (
+              <div className="space-y-2 text-sm">
+                <p className="text-muted-foreground">
+                  Generate an invite link and code you can share with others to join this group.
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={inviteMutation.isPending}
+                  onClick={() => inviteMutation.mutate()}
+                >
+                  Generate invite
+                </Button>
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Everyone is settled up in this group.</p>
+              <p className="text-sm text-muted-foreground">
+                The group creator can generate an invite link to share.
+              </p>
             )}
           </Card>
         </section>
