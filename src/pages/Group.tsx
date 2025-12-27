@@ -339,8 +339,15 @@ const GroupPage = () => {
     navigate("/");
     return null;
   }
+
   const isCreator = user && group && group.created_by === user.id;
   const inviteUrl = group?.invite_code ? group.invite_link || `https://splitstuff.app/join/${group.invite_code}` : null;
+
+  const isMember = useMemo(() => {
+    if (!members || !user) return undefined;
+    return (members as any[]).some((m) => m.user_id === user.id);
+  }, [members, user]);
+
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!groupId || !user) throw new Error("Missing context");
@@ -351,18 +358,15 @@ const GroupPage = () => {
         code += chars[Math.floor(Math.random() * chars.length)];
       }
       const link = `https://splitstuff.app/join/${code}`;
-      const {
-        error
-      } = await supabase.from("groups").update({
-        invite_code: code,
-        invite_link: link
-      }).eq("id", groupId).eq("created_by", user.id);
+      const { error } = await supabase
+        .from("groups")
+        .update({ invite_code: code, invite_link: link })
+        .eq("id", groupId)
+        .eq("created_by", user.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["group", groupId]
-      });
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
       toast({
         title: "Invite created",
         description: "You can now share this link or code."
@@ -371,6 +375,38 @@ const GroupPage = () => {
     onError: (error: any) => {
       toast({
         title: "Could not generate invite",
+        description: error.message ?? "Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberUserId: string) => {
+      if (!groupId || !user) throw new Error("Missing context");
+      if (!isCreator) throw new Error("Only the group creator can remove members.");
+
+      const { error } = await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", memberUserId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group-members", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["settlements", groupId] });
+      toast({
+        title: "Member removed",
+        description: "The member has been removed from this group."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not remove member",
         description: error.message ?? "Please try again.",
         variant: "destructive"
       });
@@ -407,8 +443,28 @@ const GroupPage = () => {
       handleCopy(inviteUrl, "Invite link");
     }
   };
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
-      <header className="relative bg-transparent px-4 pt-10 pb-2 flex items-center justify-center">
+  if (!loading && user && members && members.length === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans px-4">
+        <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center shadow-md">
+          <h1 className="text-lg font-semibold text-foreground">Not a member of this group</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You don&apos;t have access to view this group. Ask the creator to invite you, or go back to your groups.
+          </p>
+          <Button
+            className="mt-4 w-full rounded-[999px]"
+            onClick={() => navigate("/")}
+          >
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
+      <header className="relative bg-transparent px-4 pt-6 pb-3 flex items-center justify-center">
         <Button
           variant="ghost"
           size="sm"
@@ -417,88 +473,166 @@ const GroupPage = () => {
         >
           {"<-"} Back
         </Button>
-        <h1 className="mt-3 text-lg font-extrabold text-foreground text-center">
+        <h1 className="text-base font-extrabold text-foreground text-center max-w-[70%] truncate">
           {group?.name ?? "Group"}
         </h1>
       </header>
 
-      <main className="mx-auto max-w-4xl space-y-6 px-4 pb-20">
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card className="p-4 rounded-2xl border-0 shadow-md">
-            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Balances</h2>
-            {balances && Object.keys(balances).length > 0 ? <ul className="space-y-1 text-sm">
-                {Object.entries(balances).map(([userId, value]) => <li key={userId} className="flex items-center justify-between">
-                    <span>{memberMap.get(userId) ?? userId}</span>
-                    <span className={value > 0 ? "font-semibold text-success" : value < 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
+      <main className="mx-auto max-w-md md:max-w-4xl space-y-4 px-4 pb-20">
+        <section className="grid gap-3 md:gap-4 md:grid-cols-2">
+          <Card className="p-3 md:p-4 rounded-2xl border-0 shadow-md">
+            <h2 className="mb-2 text-xs md:text-sm font-medium text-muted-foreground">Balances</h2>
+            {balances && Object.keys(balances).length > 0 ? (
+              <ul className="space-y-1 text-xs md:text-sm">
+                {Object.entries(balances).map(([userId, value]) => (
+                  <li
+                    key={userId}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="truncate max-w-[55%]">
+                      {memberMap.get(userId) ?? userId}
+                    </span>
+                    <span
+                      className={
+                        value > 0
+                          ? "font-semibold text-success"
+                          : value < 0
+                            ? "font-semibold text-destructive"
+                            : "text-muted-foreground"
+                      }
+                    >
                       {value > 0 && "+"}
                       {currency.format(value)}
                     </span>
-                  </li>)}
-              </ul> : <p className="text-sm text-muted-foreground">No balances yet. Add an expense to get started.</p>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs md:text-sm text-muted-foreground">
+                No balances yet. Add an expense to get started.
+              </p>
+            )}
           </Card>
 
-          <Card className="p-4 space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Invite people</h2>
-            {inviteUrl && group?.invite_code ? <div className="space-y-2 text-sm">
+          <Card className="p-3 md:p-4 space-y-2 md:space-y-3 rounded-2xl border-0 shadow-md">
+            <h2 className="text-xs md:text-sm font-medium text-muted-foreground">Invite people</h2>
+            {inviteUrl && group?.invite_code ? (
+              <div className="space-y-2 text-xs md:text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground">Share this link</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Input readOnly value={inviteUrl} className="text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => handleCopy(inviteUrl, "Invite link")}>
-                      Copy
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleShare}>
-                      Share
-                    </Button>
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Share this link</p>
+                  <div className="mt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <Input readOnly value={inviteUrl} className="text-[10px] md:text-xs" />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopy(inviteUrl, "Invite link")}
+                      >
+                        Copy
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleShare}>
+                        Share
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div>
-                  <p className="mt-2 text-xs text-muted-foreground">Or share this code</p>
+                  <p className="mt-2 text-[10px] md:text-xs text-muted-foreground">
+                    Or share this code
+                  </p>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="rounded-md bg-muted px-2 py-1 text-xs font-mono tracking-widest">
+                    <span className="rounded-md bg-muted px-2 py-1 text-[10px] md:text-xs font-mono tracking-widest">
                       {group.invite_code}
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => handleCopy(group.invite_code!, "Invite code")}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopy(group.invite_code!, "Invite code")}
+                    >
                       Copy
                     </Button>
                   </div>
                 </div>
-              </div> : isCreator ? <div className="space-y-2 text-sm">
+              </div>
+            ) : isCreator ? (
+              <div className="space-y-2 text-xs md:text-sm">
                 <p className="text-muted-foreground">
                   Generate an invite link and code you can share with others to join this group.
                 </p>
-                <Button size="sm" className="w-full" disabled={inviteMutation.isPending} onClick={() => inviteMutation.mutate()}>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={inviteMutation.isPending}
+                  onClick={() => inviteMutation.mutate()}
+                >
                   Generate invite
                 </Button>
-              </div> : <p className="text-sm text-muted-foreground">
+              </div>
+            ) : (
+              <p className="text-xs md:text-sm text-muted-foreground">
                 The group creator can generate an invite link to share.
-              </p>}
+              </p>
+            )}
           </Card>
         </section>
 
         <section>
           <Card className="p-4 rounded-2xl border-0 shadow-md">
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">Members</h2>
-            {members && members.length > 0 ? <ul className="space-y-3 text-sm">
-                {[...(members as any[])].map(m => {
-              const baseName = m.full_name || m.user_id;
-              const isYou = user && m.user_id === user.id;
-              const displayName = isYou ? `${baseName} (You)` : baseName;
-              const initials = String(baseName || "?").split(" ").filter(Boolean).map(part => part[0]).join("").toUpperCase();
-              const joinedAt = m.joined_at ? new Date(m.joined_at).toLocaleDateString() : undefined;
-              return <li key={m.user_id} className="flex items-center justify-between gap-3">
+            {members && members.length > 0 ? (
+              <ul className="space-y-3 text-sm">
+                {[...(members as any[])].map((m) => {
+                  const baseName = m.full_name || m.user_id;
+                  const isYou = user && m.user_id === user.id;
+                  const displayName = isYou ? `${baseName} (You)` : baseName;
+                  const initials = String(baseName || "?")
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((part) => part[0])
+                    .join("")
+                    .toUpperCase();
+                  const joinedAt = m.joined_at
+                    ? new Date(m.joined_at).toLocaleDateString()
+                    : undefined;
+
+                  return (
+                    <li
+                      key={m.user_id}
+                      className="flex items-center justify-between gap-3"
+                   >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>{initials || "?"}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium leading-none text-foreground">{displayName}</p>
-                          {joinedAt && <p className="mt-0.5 text-xs text-muted-foreground">Joined {joinedAt}</p>}
+                          <p className="font-medium leading-none text-foreground">
+                            {displayName}
+                          </p>
+                          {joinedAt && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Joined {joinedAt}
+                            </p>
+                          )}
                         </div>
                       </div>
-                    </li>;
-            })}
-              </ul> : <p className="text-sm text-muted-foreground">No members yet.</p>}
+
+                      {isCreator && !isYou && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={removeMemberMutation.isPending}
+                          onClick={() => removeMemberMutation.mutate(m.user_id)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No members yet.</p>
+            )}
           </Card>
         </section>
 
@@ -522,89 +656,149 @@ const GroupPage = () => {
           <Card className="p-4">
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">Add expense</h2>
             <Form {...form}>
-              <form className="space-y-3" onSubmit={form.handleSubmit(values => {
-              addExpense.mutate(values);
-            })}>
-                <FormField control={form.control} name="title" render={({
-                field
-              }) => <FormItem>
+              <form
+                className="space-y-3"
+                onSubmit={form.handleSubmit((values) => {
+                  addExpense.mutate(values);
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Title</FormLabel>
                       <FormControl>
                         <Input placeholder="Dinner, Taxi, Groceries" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                <FormField control={form.control} name="amount" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Amount (₹)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                <FormField control={form.control} name="paidBy" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="paidBy"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Paid by</FormLabel>
                       <FormControl>
                         <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" {...field}>
                           <option value="">Select member</option>
-                          {(members ?? []).map((m: any) => <option key={m.user_id} value={m.user_id}>
+                          {(members ?? []).map((m: any) => (
+                            <option key={m.user_id} value={m.user_id}>
                               {memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id)}
-                            </option>)}
+                            </option>
+                          ))}
                         </select>
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                <FormField control={form.control} name="splitType" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="splitType"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Split type</FormLabel>
                       <div className="flex gap-2">
-                        <Button type="button" variant={field.value === "normal" ? "default" : "outline"} size="sm" onClick={() => field.onChange("normal")}>
+                        <Button
+                          type="button"
+                          variant={field.value === "normal" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => field.onChange("normal")}
+                        >
                           Normal split
                         </Button>
-                        <Button type="button" variant={field.value === "custom" ? "default" : "outline"} size="sm" onClick={() => field.onChange("custom")}>
+                        <Button
+                          type="button"
+                          variant={field.value === "custom" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => field.onChange("custom")}
+                        >
                           Custom split
                         </Button>
                       </div>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
-                {form.watch("splitType") === "custom" && <div className="space-y-2 rounded-md border border-dashed border-input p-3">
+                {form.watch("splitType") === "custom" && (
+                  <div className="space-y-2 rounded-md border border-dashed border-input p-3">
                     <p className="text-xs text-muted-foreground">
                       Enter the percentage each person should pay. Total should be 100%.
                     </p>
                     <div className="space-y-1 text-xs">
                       {(members ?? []).map((m: any) => {
-                    const name = memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id);
-                    return <div key={m.user_id} className="flex items-center gap-2">
+                        const name =
+                          memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id);
+                        return (
+                          <div key={m.user_id} className="flex items-center gap-2">
                             <span className="w-32 truncate" title={name}>
                               {name}
                             </span>
-                            <Input type="number" min={0} max={100} step={0.01} className="h-8 w-24 text-xs" value={customPercents[m.user_id] ?? ""} onChange={e => setCustomPercents(prev => ({
-                        ...prev,
-                        [m.user_id]: e.target.value
-                      }))} />
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              className="h-8 w-24 text-xs"
+                              value={customPercents[m.user_id] ?? ""}
+                              onChange={(e) =>
+                                setCustomPercents((prev) => ({
+                                  ...prev,
+                                  [m.user_id]: e.target.value,
+                                }))
+                              }
+                            />
                             <span>%</span>
-                          </div>;
-                  })}
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>}
+                  </div>
+                )}
 
-                <FormField control={form.control} name="notes" render={({
-                field
-              }) => <FormItem>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({
+                    field,
+                  }) => (
+                    <FormItem>
                       <FormLabel>Notes (optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., Included drinks" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )}
+                />
 
                 <Button type="submit" className="w-full" disabled={addExpense.isPending}>
                   Add expense
@@ -614,6 +808,8 @@ const GroupPage = () => {
           </Card>
         </section>
       </main>
-    </div>;
+    </div>
+  );
 };
+
 export default GroupPage;
