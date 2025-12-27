@@ -88,11 +88,13 @@ const GroupPage = () => {
   const memberMap = useMemo(() => {
     const map = new Map<string, string>();
     (members ?? []).forEach((m: any) => {
-      const name = m.profiles?.full_name || m.profiles?.id || m.user_id;
+      const baseName = m.profiles?.full_name || m.profiles?.id || m.user_id;
+      const isYou = user && m.user_id === user.id;
+      const name = isYou ? `${baseName} (You)` : baseName;
       map.set(m.user_id, name);
     });
     return map;
-  }, [members]);
+  }, [members, user]);
 
   const balances = useMemo(() => {
     const byUser: Record<string, number> = {};
@@ -466,7 +468,7 @@ const GroupPage = () => {
                           <option value="">Select member</option>
                           {(members ?? []).map((m: any) => (
                             <option key={m.user_id} value={m.user_id}>
-                              {memberMap.get(m.user_id) ?? m.user_id}
+                              {memberMap.get(m.user_id) ?? (user && m.user_id === user.id ? "You" : m.user_id)}
                             </option>
                           ))}
                         </select>
