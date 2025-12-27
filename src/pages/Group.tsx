@@ -449,7 +449,7 @@ const GroupPage = () => {
             {members && members.length > 0 ? (
               <ul className="space-y-3 text-sm">
                 {[...(members as any[])].map((m) => {
-                  const baseName = m.profiles?.full_name || m.profiles?.id || m.user_id;
+                  const baseName = m.full_name || m.user_id;
                   const isYou = user && m.user_id === user.id;
                   const displayName = isYou ? `${baseName} (You)` : baseName;
                   const initials = String(baseName || "?")
