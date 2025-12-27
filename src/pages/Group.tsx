@@ -49,14 +49,29 @@ const GroupPage = () => {
   const { data: members } = useQuery({
     queryKey: ["group-members", groupId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: memberRows, error } = await supabase
         .from("group_members")
         .select("user_id, joined_at")
         .eq("group_id", groupId)
         .order("joined_at", { ascending: true });
 
       if (error) throw error;
-      return data ?? [];
+      const members = memberRows ?? [];
+      if (members.length === 0) return [] as Array<{ user_id: string; joined_at: string; full_name: string | null }>;
+
+      const userIds = members.map((m: any) => m.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+
+      if (profilesError) throw profilesError;
+      const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name]));
+
+      return members.map((m: any) => ({
+        ...m,
+        full_name: profileMap.get(m.user_id) ?? null,
+      }));
     },
     enabled: !!groupId && !loading && !!user,
   });
@@ -92,7 +107,7 @@ const GroupPage = () => {
   const memberMap = useMemo(() => {
     const map = new Map<string, string>();
     (members ?? []).forEach((m: any) => {
-      const baseName = m.profiles?.full_name || m.profiles?.id || m.user_id;
+      const baseName = m.full_name || m.user_id;
       const isYou = user && m.user_id === user.id;
       const name = isYou ? `${baseName} (You)` : baseName;
       map.set(m.user_id, name);
