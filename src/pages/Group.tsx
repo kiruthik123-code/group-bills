@@ -723,6 +723,7 @@ const GroupPage = () => {
           </Card>
         </section>
       </main>
-    </div>;
+    </div>
+  );
 };
 export default GroupPage;
