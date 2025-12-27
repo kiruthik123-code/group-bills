@@ -111,6 +111,7 @@ const ProfilePage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["group-members"] });
       toast({ title: "Profile updated", description: "Your name has been saved." });
     },
     onError: (error: any) => {
