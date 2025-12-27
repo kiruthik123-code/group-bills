@@ -132,81 +132,44 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/70 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-semibold">SplitStuff</h1>
-            <p className="text-xs text-muted-foreground">Smart expense splitting and debt tracking</p>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/profile">Profile</Link>
-            </Button>
-            <span className="text-xs text-muted-foreground">{user.email}</span>
-            <Button size="sm" variant="outline" onClick={handleLogout}>
-              Log out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <main className="mx-auto flex max-w-md flex-col pb-20">
+        <header className="px-4 pt-6 pb-4">
+          <p className="text-xs font-medium text-muted-foreground">Hey there! 👋</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">SplitStuff</h1>
+        </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-6 space-y-6">
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card className="p-4">
-            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Overall summary</h2>
-            {balances ? (
-              <>
-                <p className="text-sm">{netSummary}</p>
-                <div className="mt-3 flex gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">You owe</p>
-                    <p className="font-semibold text-destructive">{currency.format(Math.max(balances.totalOwed, 0))}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">You're owed</p>
-                    <p className="font-semibold text-emerald-600">
-                      {currency.format(Math.max(balances.totalOwedToYou, 0))}
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Calculating balances...</p>
-            )}
-          </Card>
-
-          <Card className="flex flex-col justify-between p-4">
-            <div>
-              <h2 className="mb-2 text-sm font-medium text-muted-foreground">Quick actions</h2>
-              <p className="text-sm text-muted-foreground">Create or join a group for a trip, household, or project.</p>
-            </div>
-            <div className="mt-4 flex flex-col gap-2">
-              <Button className="w-full" onClick={handleCreateGroup}>
-                + Create group
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <Link to="/join">Join a group</Link>
-              </Button>
+        <section className="px-4">
+          <Card className="overflow-hidden rounded-3xl border-0 bg-gradient-to-br from-primary/10 via-accent/40 to-primary/5 shadow-md">
+            <div className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">Total balance</p>
+              <p className="mt-2 text-3xl font-extrabold text-primary">
+                {currency.format(Math.max(balances?.totalOwed ?? 0, balances?.totalOwedToYou ?? 0))}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{netSummary}</p>
             </div>
           </Card>
         </section>
 
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">Your groups</h2>
+        <section className="mt-6 flex-1 px-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Your groups</h2>
           </div>
           {groups && groups.length > 0 ? (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-3">
               {groups.map((group) => (
-                <Card key={group.id} className="p-4">
-                  <h3 className="font-medium">{group.name}</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Created {new Date(group.created_at).toLocaleDateString()}
-                  </p>
-                  <Button asChild variant="outline" size="sm" className="mt-4 w-full">
-                    <Link to={`/groups/${group.id}`}>Open group</Link>
-                  </Button>
-                </Card>
+                <button
+                  key={group.id}
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-2xl bg-card px-4 py-3 text-left shadow-sm transition hover:shadow-md"
+                  onClick={() => navigate(`/groups/${group.id}`)}
+                >
+                  <div>
+                    <p className="text-sm font-semibold">{group.name}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Created {new Date(group.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </button>
               ))}
             </div>
           ) : (
@@ -215,6 +178,28 @@ const Index = () => {
             </Card>
           )}
         </section>
+
+        <button
+          type="button"
+          onClick={handleCreateGroup}
+          className="fixed bottom-24 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-accent text-primary-foreground shadow-lg"
+        >
+          +
+        </button>
+
+        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 backdrop-blur">
+          <div className="mx-auto flex max-w-md items-center justify-around px-6 py-2 text-xs">
+            <button className="flex flex-col items-center gap-0.5 text-primary">
+              <span>Home</span>
+            </button>
+            <button className="flex flex-col items-center gap-0.5 text-muted-foreground" onClick={() => navigate("/")}>
+              <span>Groups</span>
+            </button>
+            <button className="flex flex-col items-center gap-0.5 text-muted-foreground" onClick={() => navigate("/profile")}>
+              <span>Profile</span>
+            </button>
+          </div>
+        </nav>
       </main>
     </div>
   );

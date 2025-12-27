@@ -68,83 +68,100 @@ const AuthPage = () => {
   const mode = form.watch("mode");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-md rounded-lg border bg-card p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-2xl font-semibold">SplitStuff</h1>
-        <p className="mb-6 text-center text-sm text-muted-foreground">
-          Smart expense splitting for roommates, trips, and groups.
-        </p>
-
-        <div className="mb-6 flex gap-2 rounded-md bg-muted p-1 text-sm">
-          <Button
-            type="button"
-            variant={mode === "login" ? "default" : "ghost"}
-            className="w-1/2"
-            onClick={() => form.setValue("mode", "login")}
-          >
-            Log in
-          </Button>
-          <Button
-            type="button"
-            variant={mode === "signup" ? "default" : "ghost"}
-            className="w-1/2"
-            onClick={() => form.setValue("mode", "signup")}
-          >
-            Sign up
-          </Button>
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.24),_hsl(var(--background)))]">
+      <div className="w-full max-w-sm rounded-[2rem] bg-card/90 p-8 pb-10 shadow-xl">
+        <div className="flex flex-col items-center gap-4 pt-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/10 to-accent/40">
+            <span className="text-3xl" aria-hidden>
+              💸
+            </span>
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl font-extrabold tracking-tight">SplitStuff</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Split. Settle. Stay friends.</p>
+          </div>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {mode === "signup" && (
+        <div className="mt-8 rounded-xl bg-muted/60 p-1 text-xs font-medium text-muted-foreground">
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={mode === "login" ? "default" : "ghost"}
+              className="w-1/2 rounded-lg"
+              onClick={() => form.setValue("mode", "login")}
+            >
+              Log in
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={mode === "signup" ? "default" : "ghost"}
+              className="w-1/2 rounded-lg"
+              onClick={() => form.setValue("mode", "signup")}
+            >
+              Sign up
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              {mode === "signup" && (
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full name</FormLabel>
+                      <FormControl>
+                        <Input autoComplete="name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={form.control}
-                name="fullName"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full name</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input autoComplete="name" {...field} />
+                      <Input type="email" autoComplete="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" autoComplete="email" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        autoComplete={mode === "login" ? "current-password" : "new-password"}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" className="w-full">
-              {mode === "login" ? "Log in" : "Create account"}
-            </Button>
-          </form>
-        </Form>
+              <Button type="submit" className="mt-2 w-full rounded-xl text-base font-semibold">
+                {mode === "login" ? "Continue" : "Create account"}
+              </Button>
+            </form>
+          </Form>
+        </div>
       </div>
     </div>
   );
