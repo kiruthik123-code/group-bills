@@ -68,54 +68,44 @@ const AuthPage = () => {
   const mode = form.watch("mode");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))]">
-      <div className="w-full max-w-sm rounded-[2rem] bg-card/80 p-8 pb-10 shadow-xl backdrop-blur">
-        <div className="flex flex-col items-center gap-5 pt-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-card shadow-md">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.24),_hsl(var(--background)))]">
+      <div className="w-full max-w-sm rounded-[2rem] bg-card/90 p-8 pb-10 shadow-xl">
+        <div className="flex flex-col items-center gap-4 pt-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/10 to-accent/40">
             <span className="text-3xl" aria-hidden>
               💸
             </span>
           </div>
           <div className="text-center">
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">SplitStuff</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Split. Settle. Stay Friends.</p>
+            <h1 className="text-3xl font-extrabold tracking-tight">SplitStuff</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Split. Settle. Stay friends.</p>
           </div>
         </div>
 
-        <div className="mt-8 space-y-3 text-sm">
-          <Button
-            type="button"
-            variant="secondary"
-            className="flex w-full items-center justify-center gap-2 rounded-[999px] bg-card text-foreground shadow-md hover:shadow-lg"
-            disabled
-         >
-            <span className="text-base">🔍</span>
-            <span>Continue with Google</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="secondary"
-            className="flex w-full items-center justify-center gap-2 rounded-[999px] bg-foreground text-background shadow-md hover:shadow-lg"
-            disabled
-         >
-            <span className="text-base">🍎</span>
-            <span>Continue with Apple</span>
-          </Button>
-
-          <Button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-[999px] shadow-md hover:shadow-lg"
-            disabled
-         >
-            <span className="text-base">📱</span>
-            <span>Continue with Phone</span>
-          </Button>
+        <div className="mt-8 rounded-xl bg-muted/60 p-1 text-xs font-medium text-muted-foreground">
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={mode === "login" ? "default" : "ghost"}
+              className="w-1/2 rounded-lg"
+              onClick={() => form.setValue("mode", "login")}
+            >
+              Log in
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={mode === "signup" ? "default" : "ghost"}
+              className="w-1/2 rounded-lg"
+              onClick={() => form.setValue("mode", "signup")}
+            >
+              Sign up
+            </Button>
+          </div>
         </div>
 
-        <div className="mt-8 border-t border-border pt-6 text-xs text-muted-foreground">
-          <p className="mb-3 text-center font-medium">Or sign in with email</p>
-
+        <div className="mt-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
               {mode === "signup" && (
@@ -126,7 +116,7 @@ const AuthPage = () => {
                     <FormItem>
                       <FormLabel>Full name</FormLabel>
                       <FormControl>
-                        <Input autoComplete="name" {...field} className="rounded-2xl" />
+                        <Input autoComplete="name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -141,7 +131,7 @@ const AuthPage = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" autoComplete="email" {...field} className="rounded-2xl" />
+                      <Input type="email" autoComplete="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -159,7 +149,6 @@ const AuthPage = () => {
                         type="password"
                         autoComplete={mode === "login" ? "current-password" : "new-password"}
                         {...field}
-                        className="rounded-2xl"
                       />
                     </FormControl>
                     <FormMessage />
@@ -167,7 +156,7 @@ const AuthPage = () => {
                 )}
               />
 
-              <Button type="submit" className="mt-2 w-full rounded-[999px] text-base font-semibold shadow-md hover:shadow-lg">
+              <Button type="submit" className="mt-2 w-full rounded-xl text-base font-semibold">
                 {mode === "login" ? "Continue" : "Create account"}
               </Button>
             </form>

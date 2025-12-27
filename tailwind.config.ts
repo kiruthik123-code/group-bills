@@ -63,12 +63,9 @@ export default {
         },
       },
       borderRadius: {
-        lg: "1.5rem",
-        md: "1rem",
-        sm: "0.75rem",
-      },
-      fontFamily: {
-        sans: ["Poppins", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
         "accordion-down": {
