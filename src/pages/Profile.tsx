@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -138,7 +138,12 @@ const ProfilePage = () => {
             <h1 className="text-lg font-semibold">Your profile</h1>
             <p className="text-xs text-muted-foreground">Manage your name and see your overall balances.</p>
           </div>
-          <div className="text-xs text-muted-foreground">{user.email}</div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/">Back to dashboard</Link>
+            </Button>
+            <span>{user.email}</span>
+          </div>
         </div>
       </header>
 
