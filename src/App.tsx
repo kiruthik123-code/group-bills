@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
 import GroupPage from "./pages/Group";
+import JoinGroupPage from "./pages/JoinGroup";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,8 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<Index />} />
             <Route path="/groups/:groupId" element={<GroupPage />} />
+            <Route path="/join" element={<JoinGroupPage />} />
+            <Route path="/join/:code" element={<JoinGroupPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

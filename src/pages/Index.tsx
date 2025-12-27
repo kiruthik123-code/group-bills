@@ -23,7 +23,10 @@ const Index = () => {
   const { data: groups } = useQuery({
     queryKey: ["groups"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("id, name, created_at").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("groups")
+        .select("id, name, created_at, invite_code")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -77,15 +80,27 @@ const Index = () => {
     return "You're all settled up across all groups";
   }, [balances]);
 
+  const generateInviteCode = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let result = "";
+    for (let i = 0; i < 8; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return result;
+  };
+
   const handleCreateGroup = async () => {
     if (!user) return;
     const name = window.prompt("Group name (e.g., Goa Trip, Roommates)");
     if (!name) return;
 
     try {
+      const inviteCode = generateInviteCode();
+      const inviteLink = `https://splitstuff.app/join/${inviteCode}`;
+
       const { data, error } = await supabase
         .from("groups")
-        .insert({ name, created_by: user.id })
+        .insert({ name, created_by: user.id, invite_code: inviteCode, invite_link: inviteLink })
         .select("id")
         .single();
       if (error) throw error;
@@ -160,11 +175,16 @@ const Index = () => {
           <Card className="flex flex-col justify-between p-4">
             <div>
               <h2 className="mb-2 text-sm font-medium text-muted-foreground">Quick actions</h2>
-              <p className="text-sm text-muted-foreground">Create a new group for a trip, household, or project.</p>
+              <p className="text-sm text-muted-foreground">Create or join a group for a trip, household, or project.</p>
             </div>
-            <Button className="mt-4 w-full" onClick={handleCreateGroup}>
-              + Create group
-            </Button>
+            <div className="mt-4 flex flex-col gap-2">
+              <Button className="w-full" onClick={handleCreateGroup}>
+                + Create group
+              </Button>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/join">Join a group</Link>
+              </Button>
+            </div>
           </Card>
         </section>
 
