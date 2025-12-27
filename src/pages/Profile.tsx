@@ -201,7 +201,7 @@ const ProfilePage = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">You're owed</span>
-                    <span className="font-semibold text-emerald-600">
+                    <span className="font-semibold text-success">
                       {currency.format(Math.max(balances.totalOwedToYou, 0))}
                     </span>
                   </div>
