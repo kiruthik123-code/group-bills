@@ -134,7 +134,18 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
       <header className="bg-transparent px-4 pt-10 pb-4">
-        <h1 className="text-xl font-extrabold text-foreground">Profile</h1>
+        <div className="mx-auto flex max-w-md items-center justify-between gap-3">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <Link to="/">← Home</Link>
+          </Button>
+          <h1 className="text-xl font-extrabold text-foreground">Profile</h1>
+          <div className="w-[64px]" aria-hidden />
+        </div>
       </header>
 
       <main className="mx-auto max-w-md space-y-6 px-4 pb-20">
