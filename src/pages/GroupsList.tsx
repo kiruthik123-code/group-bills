@@ -18,14 +18,37 @@ const GroupsListPage = () => {
   }, [user, loading, navigate]);
 
   const { data: groups } = useQuery({
-    queryKey: ["groups"],
+    queryKey: ["groups", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!user) return [] as any[];
+
+      // Groups where the user is a member
+      const { data: memberships, error: membershipsError } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", user.id);
+      if (membershipsError) throw membershipsError;
+
+      const memberGroupIds = (memberships ?? []).map((m: any) => m.group_id);
+
+      // Groups created by the user
+      const { data: createdGroups, error: createdGroupsError } = await supabase
+        .from("groups")
+        .select("id, name, created_at, created_by")
+        .eq("created_by", user.id);
+      if (createdGroupsError) throw createdGroupsError;
+
+      const allGroupIds = Array.from(new Set([...memberGroupIds, ...(createdGroups ?? []).map((g: any) => g.id)]));
+      if (allGroupIds.length === 0) return [] as any[];
+
+      const { data: groupsData, error: groupsError } = await supabase
         .from("groups")
         .select("id, name, created_at")
+        .in("id", allGroupIds)
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      if (groupsError) throw groupsError;
+
+      return groupsData ?? [];
     },
     enabled: !!user,
   });
