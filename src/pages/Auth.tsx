@@ -114,7 +114,34 @@ const AuthPage = () => {
         </div>
 
         <div className="mt-8 border-t border-border pt-6 text-xs text-muted-foreground">
-          <p className="mb-3 text-center font-medium">Or sign in with email</p>
+          <p className="mb-1 text-center font-medium">
+            {mode === "login" ? "Or sign in with email" : "Create your account"}
+          </p>
+          <p className="mb-4 text-center">
+            {mode === "login" ? (
+              <>
+                <span className="text-muted-foreground">New here? </span>
+                <button
+                  type="button"
+                  onClick={() => form.setValue("mode", "signup")}
+                  className="font-semibold text-primary underline-offset-4 hover:underline"
+                >
+                  Create an account
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-muted-foreground">Already have an account? </span>
+                <button
+                  type="button"
+                  onClick={() => form.setValue("mode", "login")}
+                  className="font-semibold text-primary underline-offset-4 hover:underline"
+                >
+                  Log in instead
+                </button>
+              </>
+            )}
+          </p>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
