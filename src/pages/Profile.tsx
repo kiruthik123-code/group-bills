@@ -123,6 +123,19 @@ const ProfilePage = () => {
     },
   });
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/auth", { replace: true });
+    } catch (error: any) {
+      toast({
+        title: "Could not log out",
+        description: error?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -221,6 +234,23 @@ const ProfilePage = () => {
                   </form>
                 </Form>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-0 bg-destructive/5 shadow-md">
+            <CardContent className="flex items-center justify-between py-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Log out</p>
+                <p className="text-xs text-muted-foreground">Sign out of SplitStuff on this device.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="rounded-full border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                Log out
+              </Button>
             </CardContent>
           </Card>
         </section>
