@@ -7,11 +7,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR"
@@ -412,6 +414,41 @@ const GroupPage = () => {
       });
     }
   });
+
+  const leaveGroupMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupId || !user) throw new Error("Missing context");
+
+      const { error } = await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group-members", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["settlements", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+
+      toast({
+        title: "You left the group",
+        description: "You’ll no longer see this group in your list."
+      });
+
+      navigate("/groups", { replace: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not leave group",
+        description: error?.message ?? "Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
   const handleCopy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -599,7 +636,7 @@ const GroupPage = () => {
                     <li
                       key={m.user_id}
                       className="flex items-center justify-between gap-3"
-                   >
+                    >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>{initials || "?"}</AvatarFallback>
@@ -617,14 +654,38 @@ const GroupPage = () => {
                       </div>
 
                       {isCreator && !isYou && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={removeMemberMutation.isPending}
-                          onClick={() => removeMemberMutation.mutate(m.user_id)}
-                        >
-                          Remove
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={removeMemberMutation.isPending}
+                            >
+                              Remove
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Remove {m.full_name || "this member"} from the group?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                They will no longer be able to view this group or its expenses.
+                                You can invite them again later using the group link.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => removeMemberMutation.mutate(m.user_id)}
+                                disabled={removeMemberMutation.isPending}
+                              >
+                                {removeMemberMutation.isPending ? "Removing..." : "Yes, remove"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                     </li>
                   );
@@ -635,6 +696,50 @@ const GroupPage = () => {
             )}
           </Card>
         </section>
+
+        {!isCreator && (
+          <section aria-label="Leave group" className="mt-4">
+            <Card className="rounded-2xl border-0 bg-destructive/5 shadow-md">
+              <CardContent className="flex items-center justify-between py-4">
+                <div>
+                  <p className="text-sm font-semibold text-destructive">Leave this group</p>
+                  <p className="text-xs text-muted-foreground">
+                    You’ll lose access to this group and its expenses.
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      Leave group
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Leave this group?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You’ll be removed from all balances and won’t be able to view this group or its expenses
+                        anymore. This can’t be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => leaveGroupMutation.mutate()}
+                      >
+                        Yes, leave group
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         <section className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Card className="p-4">
