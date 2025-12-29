@@ -449,6 +449,53 @@ const GroupPage = () => {
       });
     }
   });
+
+  const dissolveGroupMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupId || !user) throw new Error("Missing context");
+      if (!isCreator) throw new Error("Only the group creator can dissolve the group.");
+
+      const deleteSettlements = await supabase
+        .from("settlements")
+        .delete()
+        .eq("group_id", groupId);
+      if (deleteSettlements.error) throw deleteSettlements.error;
+
+      const deleteExpenses = await supabase
+        .from("expenses")
+        .delete()
+        .eq("group_id", groupId);
+      if (deleteExpenses.error) throw deleteExpenses.error;
+
+      const deleteMembers = await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", groupId);
+      if (deleteMembers.error) throw deleteMembers.error;
+
+      const deleteGroup = await supabase
+        .from("groups")
+        .delete()
+        .eq("id", groupId)
+        .eq("created_by", user.id);
+      if (deleteGroup.error) throw deleteGroup.error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      toast({
+        title: "Group dissolved",
+        description: "The group and all its data have been deleted for everyone."
+      });
+      navigate("/groups", { replace: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not dissolve group",
+        description: error?.message ?? "Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
   const handleCopy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -732,6 +779,50 @@ const GroupPage = () => {
                         onClick={() => leaveGroupMutation.mutate()}
                       >
                         Yes, leave group
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
+        {isCreator && (
+          <section aria-label="Dissolve group" className="mt-4">
+            <Card className="rounded-2xl border-0 bg-destructive/5 shadow-md">
+              <CardContent className="flex items-center justify-between py-4">
+                <div>
+                  <p className="text-sm font-semibold text-destructive">Dissolve this group</p>
+                  <p className="text-xs text-muted-foreground">
+                    Permanently delete this group and all its expenses for everyone.
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      Dissolve group
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure you want to dissolve this group?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the group, its members, and all expenses and settlements. This
+                        action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => dissolveGroupMutation.mutate()}
+                      >
+                        {dissolveGroupMutation.isPending ? "Dissolving..." : "Yes, dissolve"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
