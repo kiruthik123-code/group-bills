@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -104,10 +105,19 @@ const GroupsListPage = () => {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
       <main className="mx-auto flex max-w-md flex-col pb-20">
-        <header className="px-4 pt-10 pb-4">
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">All Groups</h1>
+        <header className="px-4 pt-10 pb-4 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">All Groups</h1>
+          </div>
+          <Button
+            size="sm"
+            className="rounded-full px-4"
+            onClick={() => navigate("/join")}
+          >
+            Join group
+          </Button>
         </header>
-
+ 
         <section className="flex-1 px-4">
           {groups && groups.length > 0 ? (
             <div className="space-y-3">
