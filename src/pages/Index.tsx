@@ -31,15 +31,14 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
-
   const { data: balances } = useQuery({
     queryKey: ["balances"],
     queryFn: async () => {
       if (!user) return { totalOwed: 0, totalOwedToYou: 0 };
 
-      const { data: expenses } = await supabase
+      const { data: expenses } = (await supabase
         .from("expenses")
-        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)") as any;
+        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")) as any;
 
       const { data: settlements } = await supabase
         .from("settlements")
@@ -82,7 +81,8 @@ const Index = () => {
   const { data: payables } = useQuery({
     queryKey: ["payables", user?.id],
     queryFn: async () => {
-      if (!user) return [] as { counterpartyId: string; name: string; amount: number; upiId: string | null }[];
+      if (!user)
+        return [] as { counterpartyId: string; name: string; amount: number; upiId: string | null }[];
 
       const { data: expenses } = (await supabase
         .from("expenses")
@@ -160,6 +160,8 @@ const Index = () => {
   const [upiAmount, setUpiAmount] = useState<string>("");
   const [upiNote, setUpiNote] = useState<string>("Settling up via SplitStuff");
   const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
 
   const handleOpenPayee = (
     item: { counterpartyId: string; name: string; amount: number; upiId: string | null }
@@ -232,8 +234,15 @@ const Index = () => {
 
   const handleCreateGroup = async () => {
     if (!user) return;
-    const name = window.prompt("Group name (e.g., Goa Trip, Roommates)");
-    if (!name) return;
+    const name = newGroupName.trim();
+    if (!name) {
+      toast({
+        title: "Group name required",
+        description: "Please enter a name for your group.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const inviteCode = generateInviteCode();
@@ -248,6 +257,8 @@ const Index = () => {
 
       await supabase.from("group_members").insert({ group_id: data.id, user_id: user.id });
       toast({ title: "Group created", description: `Group "${name}" was created.` });
+      setIsCreateDialogOpen(false);
+      setNewGroupName("");
       navigate(`/groups/${data.id}`);
     } catch (error: any) {
       toast({
@@ -257,6 +268,7 @@ const Index = () => {
       });
     }
   };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth", { replace: true });
@@ -398,9 +410,49 @@ const Index = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+        <AlertDialog
+          open={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open);
+            if (!open) setNewGroupName("");
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Create a new group</AlertDialogTitle>
+              <AlertDialogDescription>
+                Give your group a clear name so everyone knows what it's for.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-2 py-2 text-sm">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="group-name">
+                Group name
+              </label>
+              <Input
+                id="group-name"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Goa Trip, Roommates, Office lunch..."
+                className="h-9 rounded-2xl"
+                autoFocus
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={handleCreateGroup}
+                disabled={!newGroupName.trim()}
+              >
+                Create group
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <button
           type="button"
-          onClick={handleCreateGroup}
+          onClick={() => setIsCreateDialogOpen(true)}
           className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-secondary text-primary-foreground shadow-xl"
         >
           +
