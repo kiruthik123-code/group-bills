@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -71,7 +82,7 @@ const Index = () => {
   const { data: payables } = useQuery({
     queryKey: ["payables", user?.id],
     queryFn: async () => {
-      if (!user) return [] as { counterpartyId: string; name: string; amount: number }[];
+      if (!user) return [] as { counterpartyId: string; name: string; amount: number; upiId: string | null }[];
 
       const { data: expenses } = (await supabase
         .from("expenses")
@@ -113,29 +124,102 @@ const Index = () => {
         .filter(([, amount]) => amount < -0.01)
         .map(([id]) => id);
 
-      if (oweIds.length === 0) return [] as { counterpartyId: string; name: string; amount: number }[];
+      if (oweIds.length === 0)
+        return [] as { counterpartyId: string; name: string; amount: number; upiId: string | null }[];
 
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, upi_id")
         .in("id", oweIds);
       if (profilesError) throw profilesError;
 
-      const nameMap = new Map<string, string>();
+      const infoMap = new Map<string, { name: string; upiId: string | null }>();
       (profiles ?? []).forEach((p: any) => {
-        nameMap.set(p.id, p.full_name || "Friend");
+        infoMap.set(p.id, { name: p.full_name || "Friend", upiId: p.upi_id ?? null });
       });
 
       return oweIds
-        .map((id) => ({
-          counterpartyId: id,
-          name: nameMap.get(id) ?? "Friend",
-          amount: Math.abs(perPerson[id]),
-        }))
+        .map((id) => {
+          const info = infoMap.get(id);
+          return {
+            counterpartyId: id,
+            name: info?.name ?? "Friend",
+            upiId: info?.upiId ?? null,
+            amount: Math.abs(perPerson[id]),
+          };
+        })
         .sort((a, b) => b.amount - a.amount);
     },
     enabled: !!user,
   });
+
+  const [selectedPayee, setSelectedPayee] = useState<
+    | { counterpartyId: string; name: string; amount: number; upiId: string | null }
+    | null
+  >(null);
+  const [upiAmount, setUpiAmount] = useState<string>("");
+  const [upiNote, setUpiNote] = useState<string>("Settling up via SplitStuff");
+  const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
+
+  const handleOpenPayee = (
+    item: { counterpartyId: string; name: string; amount: number; upiId: string | null }
+  ) => {
+    setSelectedPayee(item);
+    setUpiAmount(item.amount ? item.amount.toFixed(2) : "");
+    setIsUpiDialogOpen(true);
+  };
+
+  const handlePayViaUpi = () => {
+    if (!selectedPayee) return;
+    if (!selectedPayee.upiId) {
+      toast({
+        title: "UPI ID missing",
+        description: "This person hasn't added a UPI ID yet. Ask them to update their profile.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent || "");
+    if (!isMobile) {
+      toast({
+        title: "Open on your phone",
+        description: "UPI apps work best on mobile. Open SplitStuff on your phone to complete the payment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amountNumber = Number(upiAmount.replace(/,/g, ""));
+    const params = new URLSearchParams();
+    params.set("pa", selectedPayee.upiId);
+    params.set("pn", selectedPayee.name);
+    params.set("cu", "INR");
+    if (!Number.isNaN(amountNumber) && amountNumber > 0) {
+      params.set("am", amountNumber.toFixed(2));
+    }
+    if (upiNote.trim()) {
+      params.set("tn", upiNote.trim());
+    }
+
+    const url = `upi://pay?${params.toString()}`;
+
+    console.log("Launching UPI payment", {
+      url,
+      payeeId: selectedPayee.counterpartyId,
+    });
+
+    try {
+      window.location.href = url;
+    } catch (error) {
+      console.error("UPI launch failed", error);
+      toast({
+        title: "Could not open UPI app",
+        description: "Make sure you have a UPI app installed and try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const generateInviteCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -173,7 +257,6 @@ const Index = () => {
       });
     }
   };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth", { replace: true });
@@ -213,9 +296,26 @@ const Index = () => {
           {payables && payables.length > 0 ? (
             <div className="space-y-3">
               {payables.map((item) => (
-                <Card key={item.counterpartyId} className="flex items-center justify-between rounded-2xl px-4 py-3 shadow-sm">
+                <Card
+                  key={item.counterpartyId}
+                  className="flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3 shadow-sm transition hover:bg-accent"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleOpenPayee(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleOpenPayee(item);
+                    }
+                  }}
+                >
                   <div>
                     <p className="text-sm font-semibold text-foreground">Pay {item.name}</p>
+                    {item.upiId ? (
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">UPI ID available</p>
+                    ) : (
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">UPI ID not added yet</p>
+                    )}
                   </div>
                   <div className="text-right text-xs">
                     <p className="font-semibold text-destructive">{currency.format(item.amount)}</p>
@@ -230,6 +330,73 @@ const Index = () => {
             </Card>
           )}
         </section>
+
+        <AlertDialog open={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Pay via UPI</AlertDialogTitle>
+              <AlertDialogDescription>
+                {selectedPayee ? (
+                  <span>
+                    You're about to pay <span className="font-semibold text-foreground">{selectedPayee.name}</span>.
+                  </span>
+                ) : (
+                  "Select someone from the list of people to pay."
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {selectedPayee && (
+              <div className="space-y-3 py-2 text-sm">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Receiver UPI ID</p>
+                  <p className="text-sm font-mono text-foreground">
+                    {selectedPayee.upiId ?? "No UPI ID added"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="upi-amount">
+                    Amount (optional)
+                  </label>
+                  <Input
+                    id="upi-amount"
+                    value={upiAmount}
+                    onChange={(e) => setUpiAmount(e.target.value)}
+                    placeholder={selectedPayee.amount ? selectedPayee.amount.toFixed(2) : "0.00"}
+                    inputMode="decimal"
+                    className="h-9 rounded-2xl"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="upi-note">
+                    Note (optional)
+                  </label>
+                  <Input
+                    id="upi-note"
+                    value={upiNote}
+                    onChange={(e) => setUpiNote(e.target.value)}
+                    placeholder="Dinner, rent, trip..."
+                    className="h-9 rounded-2xl"
+                  />
+                </div>
+                {!selectedPayee.upiId && (
+                  <p className="text-xs text-destructive">
+                    This person hasn't added a UPI ID yet. Ask them to update their profile before paying.
+                  </p>
+                )}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel>Close</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={handlePayViaUpi}
+                disabled={!selectedPayee || !selectedPayee.upiId}
+              >
+                Pay via UPI
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <button
           type="button"

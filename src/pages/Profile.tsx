@@ -20,6 +20,12 @@ const profileSchema = z.object({
     .trim()
     .min(1, "Name is required")
     .max(100, "Name must be at most 100 characters"),
+  upiId: z
+    .string()
+    .trim()
+    .min(1, "UPI ID is required")
+    .max(100, "UPI ID must be at most 100 characters")
+    .regex(/^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z.]{2,}$/i, "Enter a valid UPI ID like username@bank"),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -42,7 +48,7 @@ const ProfilePage = () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, created_at, updated_at")
+        .select("id, full_name, upi_id, created_at, updated_at")
         .eq("id", user.id)
         .maybeSingle();
       if (error) throw error;
@@ -94,9 +100,11 @@ const ProfilePage = () => {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       fullName: profile?.full_name || "",
+      upiId: profile?.upi_id || "",
     },
     values: {
       fullName: profile?.full_name || "",
+      upiId: profile?.upi_id || "",
     },
   });
 
@@ -106,6 +114,7 @@ const ProfilePage = () => {
       const { error } = await supabase.from("profiles").upsert({
         id: user.id,
         full_name: values.fullName.trim(),
+        upi_id: values.upiId.trim(),
       });
       if (error) throw error;
     },
@@ -204,7 +213,9 @@ const ProfilePage = () => {
           <Card className="rounded-2xl border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-base font-semibold text-foreground">Profile details</CardTitle>
-              <CardDescription>Update how your name appears to others in groups.</CardDescription>
+              <CardDescription>
+                Update how your name appears and where people can pay you via UPI.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {profileLoading ? (
@@ -222,8 +233,35 @@ const ProfilePage = () => {
                         <FormItem>
                           <FormLabel>Full name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Your name" autoComplete="name" {...field} className="rounded-2xl" />
+                            <Input
+                              placeholder="Your name"
+                              autoComplete="name"
+                              {...field}
+                              className="rounded-2xl"
+                            />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="upiId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>UPI ID</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="username@bank"
+                              inputMode="email"
+                              autoComplete="off"
+                              {...field}
+                              className="rounded-2xl"
+                            />
+                          </FormControl>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            This is shared only with people you settle up with so they can pay you via UPI.
+                          </p>
                           <FormMessage />
                         </FormItem>
                       )}
