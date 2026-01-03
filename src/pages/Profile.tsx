@@ -1,300 +1,319 @@
-import { useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { ArrowLeft, Loader2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-
-const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const profileSchema = z.object({
-  fullName: z
-    .string()
-    .trim()
-    .min(1, "Name is required")
-    .max(100, "Name must be at most 100 characters"),
-  upiId: z
-    .string()
-    .trim()
-    .min(1, "UPI ID is required")
-    .max(100, "UPI ID must be at most 100 characters")
-    .regex(/^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z.]{2,}$/i, "Enter a valid UPI ID like username@bank"),
+    fullName: z
+        .string()
+        .trim()
+        .min(1, "Name is required")
+        .max(100, "Name must be at most 100 characters"),
+    upiId: z
+        .string()
+        .trim()
+        .min(1, "UPI ID is required")
+        .max(100, "UPI ID must be at most 100 characters")
+        .regex(/^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z.]{2,}$/i, "Enter a valid UPI ID like username@bank"),
 });
 
-type ProfileFormValues = z.infer<typeof profileSchema>;
+const Profile = () => {
+    const { user, loading } = useAuth();
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+    const [showProfileWarning, setShowProfileWarning] = useState(false);
+    
+    // Type for profile data
+    type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const ProfilePage = () => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
+    // Define form
+    const form = useForm<ProfileFormValues>({
+        resolver: zodResolver(profileSchema),
+        defaultValues: {
+            fullName: "",
+            upiId: "",
+        },
+    });
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth", { replace: true });
-    }
-  }, [user, loading, navigate]);
+    // Fetch profile data
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!user) return;
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile", user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, upi_id, created_at, updated_at")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+            try {
+                const { data, error } = await supabase
+                    .from("profiles")
+                    .select("full_name, upi_id")
+                    .eq("id", user.id)
+                    .single();
 
-  const { data: balances } = useQuery({
-    queryKey: ["balances", user?.id],
-    queryFn: async () => {
-      if (!user) return { totalOwed: 0, totalOwedToYou: 0 };
+                if (error) throw error;
 
-      const { data: expenses } = (await supabase
-        .from("expenses")
-        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")) as any;
+                if (data) {
+                    form.reset({
+                        fullName: data.full_name || "",
+                        upiId: data.upi_id || "",
+                    });
+                }
+            } catch (error) {
+                toast({
+                    title: "Error fetching profile",
+                    description: (error as Error).message,
+                    variant: "destructive",
+                });
+            }
+        };
 
-      const { data: settlements } = await supabase
-        .from("settlements")
-        .select("amount, payer_id, receiver_id, status");
-
-      let totalOwed = 0;
-      let totalOwedToYou = 0;
-
-      (expenses ?? []).forEach((exp: any) => {
-        const splits = exp.expense_splits ?? [];
-        splits.forEach((split: any) => {
-          if (split.user_id === user.id && exp.paid_by !== user.id) {
-            totalOwed += split.share_amount;
-          }
-          if (exp.paid_by === user.id && split.user_id !== user.id) {
-            totalOwedToYou += split.share_amount;
-          }
+        fetchProfile();
+    }, [user, form, toast]);
+    
+    // Check if profile is empty (both name and UPI ID are missing) after form is loaded
+    useEffect(() => {
+        const subscription = form.watch((values) => {
+            const isNameEmpty = !values.fullName || values.fullName.trim() === "";
+            const isUpiIdEmpty = !values.upiId || values.upiId.trim() === "";
+            
+            if (isNameEmpty || isUpiIdEmpty) {
+                setShowProfileWarning(true);
+            } else {
+                setShowProfileWarning(false); // Hide warning if both fields are filled
+            }
         });
-      });
+        
+        return () => subscription.unsubscribe();
+    }, [form]);
 
-      (settlements ?? []).forEach((s: any) => {
-        if (s.status !== "settled") return;
-        if (s.payer_id === user.id) totalOwed -= s.amount;
-        if (s.receiver_id === user.id) totalOwedToYou -= s.amount;
-      });
+    const onSubmit = async (values: ProfileFormValues) => {
+        if (!user) return;
+        setIsSaving(true);
 
-      return { totalOwed, totalOwedToYou };
-    },
-    enabled: !!user,
-  });
+        try {
+            const { error } = await supabase
+                .from("profiles")
+                .upsert({
+                    id: user.id,
+                    full_name: values.fullName.trim(),
+                    upi_id: values.upiId.trim() || null,
+                    updated_at: new Date().toISOString(),
+                });
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      fullName: profile?.full_name || "",
-      upiId: profile?.upi_id || "",
-    },
-    values: {
-      fullName: profile?.full_name || "",
-      upiId: profile?.upi_id || "",
-    },
-  });
+            if (error) throw error;
 
-  const updateProfile = useMutation({
-    mutationFn: async (values: ProfileFormValues) => {
-      if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("profiles").upsert({
-        id: user.id,
-        full_name: values.fullName.trim(),
-        upi_id: values.upiId.trim(),
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["group-members"] });
-      toast({ title: "Profile updated", description: "Your name has been saved." });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Could not update profile",
-        description: error.message ?? "Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+            // Hide the warning after successful update
+            setShowProfileWarning(false);
+            
+            toast({
+                title: "Profile updated",
+                description: "Your information has been saved successfully.",
+            });
+        } catch (error) {
+            toast({
+                title: "Error updating profile",
+                description: (error as Error).message,
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate("/auth", { replace: true });
-    } catch (error: any) {
-      toast({
-        title: "Could not log out",
-        description: error?.message ?? "Please try again.",
-        variant: "destructive",
-      });
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    
+    const handleLogout = async () => {
+        try {
+            await supabase.auth.signOut();
+            navigate("/auth", { replace: true });
+        } catch (error) {
+            toast({
+                title: "Error logging out",
+                description: (error as Error).message || "Please try again",
+                variant: "destructive",
+            });
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
     }
-  };
 
-  if (loading || !user) {
+    // Get initials for avatar
+    const getInitials = (name: string) => {
+        return name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">Loading your profile...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
-      <header className="bg-transparent px-4 pt-10 pb-4">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-3">
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
-          >
-            <Link to="/">← Home</Link>
-          </Button>
-          <h1 className="text-xl font-extrabold text-foreground">Profile</h1>
-          <div className="w-[64px]" aria-hidden />
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-md space-y-6 px-4 pb-20">
-        <section className="flex flex-col items-center gap-3">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-card shadow-md">
-            <span className="text-3xl" aria-hidden>
-              😎
-            </span>
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-semibold text-foreground">{profile?.full_name || "Your name"}</p>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <Card className="rounded-2xl border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Transaction summary</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {balances ? (
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">You owe</span>
-                    <span className="font-semibold text-destructive">
-                      {currency.format(Math.max(balances.totalOwed, 0))}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">You're owed</span>
-                    <span className="font-semibold text-success">
-                      {currency.format(Math.max(balances.totalOwedToYou, 0))}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Calculating balances...</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold text-foreground">Profile details</CardTitle>
-              <CardDescription>
-                Update how your name appears and where people can pay you via UPI.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {profileLoading ? (
-                <p className="text-sm text-muted-foreground">Loading profile...</p>
-              ) : (
-                <Form {...form}>
-                  <form
-                    className="space-y-4"
-                    onSubmit={form.handleSubmit((values) => updateProfile.mutate(values))}
-                  >
-                    <FormField
-                      control={form.control}
-                      name="fullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full name</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Your name"
-                              autoComplete="name"
-                              {...field}
-                              className="rounded-2xl"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="upiId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>UPI ID</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="username@bank"
-                              inputMode="email"
-                              autoComplete="off"
-                              {...field}
-                              className="rounded-2xl"
-                            />
-                          </FormControl>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            This is shared only with people you settle up with so they can pay you via UPI.
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="submit" size="sm" disabled={updateProfile.isPending} className="rounded-[999px]">
-                      Save changes
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))]">
+            <div className="mx-auto flex max-w-md flex-col pb-20">
+                {/* Header */}
+                <header className="sticky top-0 z-10 flex items-center justify-between bg-white/50 px-4 py-4 backdrop-blur-md">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="-ml-2 h-9 w-9 rounded-full"
+                            onClick={() => navigate(-1)}
+                        >
+                            <ArrowLeft className="h-5 w-5" />
+                        </Button>
+                        <h1 className="text-lg font-semibold text-foreground">Profile</h1>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full"
+                        onClick={() => setShowLogoutConfirm(true)}
+                    >
+                        <LogOut className="h-5 w-5" />
                     </Button>
-                  </form>
-                </Form>
-              )}
-            </CardContent>
-          </Card>
+                </header>
 
-          <Card className="rounded-2xl border-0 bg-destructive/5 shadow-md">
-            <CardContent className="flex items-center justify-between py-4">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Log out</p>
-                <p className="text-xs text-muted-foreground">Sign out of SplitStuff on this device.</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="rounded-full border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                Log out
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
-      </main>
-    </div>
-  );
+                <div className="p-4 space-y-6">
+                    <div className="flex flex-col items-center justify-center space-y-3 py-4">
+                        <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
+                            <AvatarImage src="" />
+                            <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                                {getInitials(form.watch("fullName") || "User")}
+                            </AvatarFallback>
+                        </Avatar>
+                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    </div>
+
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="fullName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Full Name</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="John Doe"
+                                                {...field}
+                                                className="rounded-xl border-input/50 bg-background/50 focus:bg-background transition-colors"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="upiId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>UPI ID</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="username@bank"
+                                                {...field}
+                                                className="rounded-xl border-input/50 bg-background/50 focus:bg-background transition-colors"
+                                            />
+                                        </FormControl>
+                                        <FormDescription className="text-xs">
+                                            Required for others to pay you directly from the app.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <Button
+                                type="submit"
+                                className="w-full rounded-2xl py-6 text-base font-semibold shadow-lg shadow-primary/20"
+                                disabled={isSaving}
+                            >
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Changes
+                            </Button>
+                        </form>
+                    </Form>
+                </div>
+
+                {/* Bottom Nav Spacer */}
+                <div className="h-16" />
+            </div>
+            
+            <AlertDialog open={showProfileWarning} onOpenChange={setShowProfileWarning}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Profile Details Missing</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {(() => {
+                                const fullName = form.watch("fullName");
+                                const upiId = form.watch("upiId");
+                                
+                                const isNameEmpty = !fullName || fullName.trim() === "";
+                                const isUpiIdEmpty = !upiId || upiId.trim() === "";
+                                
+                                if (isNameEmpty && isUpiIdEmpty) {
+                                    return "Your name and UPI ID are missing. Please update your profile to fully use SplitStuff.";
+                                } else if (isNameEmpty) {
+                                    return "Your name is missing. Please update your profile to fully use SplitStuff.";
+                                } else {
+                                    return "Your UPI ID is missing. Please update your profile to fully use SplitStuff.";
+                                }
+                            })()}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setShowProfileWarning(false)}>
+                            OK
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Log Out</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to log out? You'll need to sign in again to access your account.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleLogout}
+                            className="bg-destructive hover:bg-destructive/90"
+                        >
+                            Log Out
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
 };
 
-export default ProfilePage;
+export default Profile;

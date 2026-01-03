@@ -2,11 +2,21 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+
+type Group = Pick<Database['public']['Tables']['groups']['Row'], 'id' | 'name' | 'created_at'>;
+
+type ExpenseWithSplits = Pick<Database['public']['Tables']['expenses']['Row'], 'id' | 'group_id' | 'amount' | 'paid_by'> & {
+  expense_splits: Pick<Database['public']['Tables']['expense_splits']['Row'], 'user_id' | 'share_amount'>[]
+};
+
+type Settlement = Pick<Database['public']['Tables']['settlements']['Row'], 'amount' | 'payer_id' | 'receiver_id' | 'status' | 'group_id'>;
+
 
 const GroupsListPage = () => {
   const { user, loading } = useAuth();
@@ -21,7 +31,7 @@ const GroupsListPage = () => {
   const { data: groups } = useQuery({
     queryKey: ["groups", user?.id],
     queryFn: async () => {
-      if (!user) return [] as any[];
+      if (!user) return [] as Group[];
 
       // Groups where the user is a member
       const { data: memberships, error: membershipsError } = await supabase
@@ -30,7 +40,7 @@ const GroupsListPage = () => {
         .eq("user_id", user.id);
       if (membershipsError) throw membershipsError;
 
-      const memberGroupIds = (memberships ?? []).map((m: any) => m.group_id);
+      const memberGroupIds = (memberships ?? []).map((m) => m.group_id);
 
       // Groups created by the user
       const { data: createdGroups, error: createdGroupsError } = await supabase
@@ -39,14 +49,15 @@ const GroupsListPage = () => {
         .eq("created_by", user.id);
       if (createdGroupsError) throw createdGroupsError;
 
-      const allGroupIds = Array.from(new Set([...memberGroupIds, ...(createdGroups ?? []).map((g: any) => g.id)]));
-      if (allGroupIds.length === 0) return [] as any[];
+      const allGroupIds = Array.from(new Set([...memberGroupIds, ...(createdGroups ?? []).map((g) => g.id)]));
+      if (allGroupIds.length === 0) return [] as Group[];
 
       const { data: groupsData, error: groupsError } = await supabase
         .from("groups")
         .select("id, name, created_at")
         .in("id", allGroupIds)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .returns<Group[]>();
       if (groupsError) throw groupsError;
 
       return groupsData ?? [];
@@ -59,20 +70,22 @@ const GroupsListPage = () => {
     queryFn: async () => {
       if (!user) return {} as Record<string, number>;
 
-      const { data: expenses } = (await supabase
+      const { data: expenses } = await supabase
         .from("expenses")
-        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")) as any;
+        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")
+        .returns<ExpenseWithSplits[]>();
 
       const { data: settlements } = await supabase
         .from("settlements")
-        .select("amount, payer_id, receiver_id, status, group_id");
+        .select("amount, payer_id, receiver_id, status, group_id")
+        .returns<Settlement[]>();
 
       const map: Record<string, number> = {};
 
-      (expenses ?? []).forEach((exp: any) => {
+      (expenses ?? []).forEach((exp) => {
         if (!map[exp.group_id]) map[exp.group_id] = 0;
         const splits = exp.expense_splits ?? [];
-        splits.forEach((split: any) => {
+        splits.forEach((split) => {
           if (split.user_id === user.id && exp.paid_by !== user.id) {
             map[exp.group_id] -= split.share_amount;
           }
@@ -82,7 +95,7 @@ const GroupsListPage = () => {
         });
       });
 
-      (settlements ?? []).forEach((s: any) => {
+      (settlements ?? []).forEach((s) => {
         if (s.status !== "settled") return;
         if (!map[s.group_id]) map[s.group_id] = 0;
         if (s.payer_id === user.id) map[s.group_id] += s.amount;
@@ -111,13 +124,13 @@ const GroupsListPage = () => {
           </div>
           <Button
             size="sm"
-            className="rounded-full px-4"
+            className="rounded-full px-4 transition-all duration-200 hover:scale-105"
             onClick={() => navigate("/join")}
           >
             Join group
           </Button>
         </header>
- 
+
         <section className="flex-1 px-4">
           {groups && groups.length > 0 ? (
             <div className="space-y-3">
@@ -132,7 +145,7 @@ const GroupsListPage = () => {
                   <button
                     key={group.id}
                     type="button"
-                    className="flex w-full items-center justify-between rounded-2xl bg-card px-4 py-3 text-left shadow-sm transition hover:shadow-md"
+                    className="flex w-full items-center justify-between rounded-2xl bg-card px-4 py-3 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
                     onClick={() => navigate(`/groups/${group.id}`)}
                   >
                     <div>
@@ -147,8 +160,8 @@ const GroupsListPage = () => {
                           isPositive
                             ? "text-success font-semibold"
                             : isNegative
-                            ? "text-destructive font-semibold"
-                            : "text-muted-foreground"
+                              ? "text-destructive font-semibold"
+                              : "text-muted-foreground"
                         }
                       >
                         {amountText}
@@ -160,7 +173,7 @@ const GroupsListPage = () => {
               })}
             </div>
           ) : (
-            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm">
+            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm transition-all duration-200 hover:scale-[1.02]">
               No groups yet. Create one from Home.
             </Card>
           )}
@@ -169,16 +182,16 @@ const GroupsListPage = () => {
         <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-6px_16px_rgba(0,0,0,0.06)] backdrop-blur">
           <div className="mx-auto flex max-w-md items-center justify-around px-8 py-3 text-[11px] font-medium">
             <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
               onClick={() => navigate("/")}
             >
               <span>Home</span>
             </button>
-            <button className="flex flex-col items-center gap-0.5 text-primary">
+            <button className="flex flex-col items-center gap-0.5 text-primary transition-all duration-200 hover:scale-105">
               <span>Groups</span>
             </button>
             <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
               onClick={() => navigate("/profile")}
             >
               <span>Profile</span>

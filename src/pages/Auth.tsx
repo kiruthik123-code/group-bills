@@ -56,10 +56,11 @@ const AuthPage = () => {
         toast({ title: "Welcome back", description: "You are now signed in." });
       }
       navigate("/", { replace: true });
-    } catch (error: any) {
+    } catch (error) {
+      const message = (error as Error).message ?? "Please check your details and try again.";
       toast({
         title: "Authentication failed",
-        description: error.message ?? "Please check your details and try again.",
+        description: message,
         variant: "destructive",
       });
     }
@@ -88,7 +89,7 @@ const AuthPage = () => {
             variant="secondary"
             className="flex w-full items-center justify-center gap-2 rounded-[999px] bg-card text-foreground shadow-md hover:shadow-lg"
             disabled
-         >
+          >
             <span className="text-base">🔍</span>
             <span>Continue with Google</span>
           </Button>
@@ -98,7 +99,7 @@ const AuthPage = () => {
             variant="secondary"
             className="flex w-full items-center justify-center gap-2 rounded-[999px] bg-foreground text-background shadow-md hover:shadow-lg"
             disabled
-         >
+          >
             <span className="text-base">🍎</span>
             <span>Continue with Apple</span>
           </Button>
@@ -107,7 +108,7 @@ const AuthPage = () => {
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-[999px] shadow-md hover:shadow-lg"
             disabled
-         >
+          >
             <span className="text-base">📱</span>
             <span>Continue with Phone</span>
           </Button>
@@ -124,7 +125,7 @@ const AuthPage = () => {
                 <button
                   type="button"
                   onClick={() => form.setValue("mode", "signup")}
-                  className="font-semibold text-primary underline-offset-4 hover:underline"
+                  className="font-semibold text-primary underline-offset-4 hover:underline transition-all duration-200 hover:scale-105"
                 >
                   Create an account
                 </button>
@@ -135,7 +136,7 @@ const AuthPage = () => {
                 <button
                   type="button"
                   onClick={() => form.setValue("mode", "login")}
-                  className="font-semibold text-primary underline-offset-4 hover:underline"
+                  className="font-semibold text-primary underline-offset-4 hover:underline transition-all duration-200 hover:scale-105"
                 >
                   Log in instead
                 </button>
@@ -194,7 +195,7 @@ const AuthPage = () => {
                 )}
               />
 
-              <Button type="submit" className="mt-2 w-full rounded-[999px] text-base font-semibold shadow-md hover:shadow-lg">
+              <Button type="submit" className="mt-2 w-full rounded-[999px] text-base font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
                 {mode === "login" ? "Continue" : "Create account"}
               </Button>
             </form>

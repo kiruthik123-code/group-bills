@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +22,13 @@ import {
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
+type ExpenseWithSplits = Pick<Database['public']['Tables']['expenses']['Row'], 'id' | 'group_id' | 'amount' | 'paid_by'> & {
+  expense_splits: Pick<Database['public']['Tables']['expense_splits']['Row'], 'user_id' | 'share_amount'>[]
+};
+
+type Settlement = Pick<Database['public']['Tables']['settlements']['Row'], 'amount' | 'payer_id' | 'receiver_id' | 'status'>;
+
+
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -36,20 +45,22 @@ const Index = () => {
     queryFn: async () => {
       if (!user) return { totalOwed: 0, totalOwedToYou: 0 };
 
-      const { data: expenses } = (await supabase
+      const { data: expenses } = await supabase
         .from("expenses")
-        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")) as any;
+        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")
+        .returns<ExpenseWithSplits[]>();
 
       const { data: settlements } = await supabase
         .from("settlements")
-        .select("amount, payer_id, receiver_id, status");
+        .select("amount, payer_id, receiver_id, status")
+        .returns<Settlement[]>();
 
       let totalOwed = 0;
       let totalOwedToYou = 0;
 
-      (expenses ?? []).forEach((exp: any) => {
+      (expenses ?? []).forEach((exp) => {
         const splits = exp.expense_splits ?? [];
-        splits.forEach((split: any) => {
+        splits.forEach((split) => {
           if (split.user_id === user.id && exp.paid_by !== user.id) {
             totalOwed += split.share_amount;
           }
@@ -59,7 +70,7 @@ const Index = () => {
         });
       });
 
-      (settlements ?? []).forEach((s: any) => {
+      (settlements ?? []).forEach((s) => {
         if (s.status !== "settled") return;
         if (s.payer_id === user.id) totalOwed -= s.amount;
         if (s.receiver_id === user.id) totalOwedToYou -= s.amount;
@@ -84,9 +95,10 @@ const Index = () => {
       if (!user)
         return [] as { counterpartyId: string; name: string; amount: number; upiId: string | null }[];
 
-      const { data: expenses } = (await supabase
+      const { data: expenses } = await supabase
         .from("expenses")
-        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")) as any;
+        .select("id, group_id, amount, paid_by, expense_splits(user_id, share_amount)")
+        .returns<ExpenseWithSplits[]>();
 
       const { data: settlements } = await supabase
         .from("settlements")
@@ -94,9 +106,9 @@ const Index = () => {
 
       const perPerson: Record<string, number> = {};
 
-      (expenses ?? []).forEach((exp: any) => {
+      (expenses ?? []).forEach((exp) => {
         const splits = exp.expense_splits ?? [];
-        splits.forEach((split: any) => {
+        splits.forEach((split) => {
           if (split.user_id === user.id && exp.paid_by !== user.id) {
             // You owe the payer
             perPerson[exp.paid_by] = (perPerson[exp.paid_by] ?? 0) - split.share_amount;
@@ -108,7 +120,7 @@ const Index = () => {
         });
       });
 
-      (settlements ?? []).forEach((s: any) => {
+      (settlements ?? []).forEach((s) => {
         if (s.status !== "settled") return;
         if (s.payer_id === user.id) {
           // You paid them back
@@ -134,7 +146,7 @@ const Index = () => {
       if (profilesError) throw profilesError;
 
       const infoMap = new Map<string, { name: string; upiId: string | null }>();
-      (profiles ?? []).forEach((p: any) => {
+      (profiles ?? []).forEach((p) => {
         infoMap.set(p.id, { name: p.full_name || "Friend", upiId: p.upi_id ?? null });
       });
 
@@ -157,6 +169,7 @@ const Index = () => {
     | { counterpartyId: string; name: string; amount: number; upiId: string | null }
     | null
   >(null);
+  const [showPaymentQR, setShowPaymentQR] = useState(false);
   const [upiAmount, setUpiAmount] = useState<string>("");
   const [upiNote, setUpiNote] = useState<string>("Settling up via SplitStuff");
   const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
@@ -182,45 +195,14 @@ const Index = () => {
       return;
     }
 
-    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent || "");
-    if (!isMobile) {
-      toast({
-        title: "Open on your phone",
-        description: "UPI apps work best on mobile. Open SplitStuff on your phone to complete the payment.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const amountNumber = Number(upiAmount.replace(/,/g, ""));
+    // Navigate to the new UPI payment page with payment details in URL parameters
     const params = new URLSearchParams();
-    params.set("pa", selectedPayee.upiId);
-    params.set("pn", selectedPayee.name);
-    params.set("cu", "INR");
-    if (!Number.isNaN(amountNumber) && amountNumber > 0) {
-      params.set("am", amountNumber.toFixed(2));
-    }
-    if (upiNote.trim()) {
-      params.set("tn", upiNote.trim());
-    }
+    params.set("name", selectedPayee.name);
+    params.set("upi", selectedPayee.upiId);
+    params.set("amount", upiAmount);
+    params.set("note", upiNote.trim() || "Settling up via SplitStuff");
 
-    const url = `upi://pay?${params.toString()}`;
-
-    console.log("Launching UPI payment", {
-      url,
-      payeeId: selectedPayee.counterpartyId,
-    });
-
-    try {
-      window.location.href = url;
-    } catch (error) {
-      console.error("UPI launch failed", error);
-      toast({
-        title: "Could not open UPI app",
-        description: "Make sure you have a UPI app installed and try again.",
-        variant: "destructive",
-      });
-    }
+    navigate(`/upi-payment?${params.toString()}`);
   };
 
   const generateInviteCode = () => {
@@ -260,10 +242,11 @@ const Index = () => {
       setIsCreateDialogOpen(false);
       setNewGroupName("");
       navigate(`/groups/${data.id}`);
-    } catch (error: any) {
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Please try again.";
       toast({
         title: "Could not create group",
-        description: error.message ?? "Please try again.",
+        description: message,
         variant: "destructive",
       });
     }
@@ -293,7 +276,12 @@ const Index = () => {
           <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-lg">
             <div className="p-5">
               <p className="text-xs font-medium text-muted-foreground">Total balance</p>
-              <p className="mt-2 text-3xl font-extrabold text-foreground">
+              <p className="mt-2 text-3xl font-extrabold"
+                style={{
+                  color: balances && (balances.totalOwedToYou ?? 0) >= (balances.totalOwed ?? 0)
+                    ? 'hsl(var(--success))'
+                    : 'hsl(var(--destructive))'
+                }}>
                 {currency.format(Math.max(balances?.totalOwed ?? 0, balances?.totalOwedToYou ?? 0))}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{netSummary}</p>
@@ -301,7 +289,23 @@ const Index = () => {
           </Card>
         </section>
 
-        <section className="mt-6 flex-1 px-4">
+        <section className="mt-6 flex-1 px-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.02]"
+              onClick={() => setIsCreateDialogOpen(true)}
+            >
+              Create Group
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.02]"
+              onClick={() => navigate("/join")}
+            >
+              Join Group
+            </Button>
+          </div>
+
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">People to pay</h2>
           </div>
@@ -310,7 +314,7 @@ const Index = () => {
               {payables.map((item) => (
                 <Card
                   key={item.counterpartyId}
-                  className="flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3 shadow-sm transition hover:bg-accent"
+                  className="flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:bg-accent"
                   role="button"
                   tabIndex={0}
                   onClick={() => handleOpenPayee(item)}
@@ -399,14 +403,42 @@ const Index = () => {
             )}
             <AlertDialogFooter>
               <AlertDialogCancel>Close</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={handlePayViaUpi}
-                disabled={!selectedPayee || !selectedPayee.upiId}
-              >
-                Pay via UPI
-              </AlertDialogAction>
+              <div className="flex flex-col gap-2 w-full">
+                <AlertDialogAction
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+                  onClick={handlePayViaUpi}
+                  disabled={!selectedPayee || !selectedPayee.upiId}
+                >
+                  Pay via UPI
+                </AlertDialogAction>
+                {selectedPayee?.upiId && (
+                  <Button
+                    variant="outline"
+                    className="w-full transition-all duration-200 hover:scale-105"
+                    onClick={() => setShowPaymentQR(!showPaymentQR)}
+                  >
+                    {showPaymentQR ? 'Hide QR' : 'Show Payment QR'}
+                  </Button>
+                )}
+              </div>
             </AlertDialogFooter>
+            {showPaymentQR && selectedPayee?.upiId && (
+              <div className="p-4 border-t pt-4 mt-4">
+                <div className="flex flex-col items-center">
+                  <div className="p-3 bg-white rounded-lg">
+                    <QRCodeSVG
+                      value={`upi://pay?pa=${selectedPayee.upiId}&pn=${encodeURIComponent(selectedPayee.name)}&am=${Number(upiAmount || selectedPayee.amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(upiNote || 'Settling up via SplitStuff')}`}
+                      size={128}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Scan this QR code with any UPI app to pay {selectedPayee.name}
+                  </p>
+                </div>
+              </div>
+            )}
           </AlertDialogContent>
         </AlertDialog>
 
@@ -450,27 +482,21 @@ const Index = () => {
           </AlertDialogContent>
         </AlertDialog>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateDialogOpen(true)}
-          className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-secondary text-primary-foreground shadow-xl"
-        >
-          +
-        </button>
+
 
         <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-6px_16px_rgba(0,0,0,0.06)] backdrop-blur">
           <div className="mx-auto flex max-w-md items-center justify-around px-8 py-3 text-[11px] font-medium">
-            <button className="flex flex-col items-center gap-0.5 text-primary">
+            <button className="flex flex-col items-center gap-0.5 text-primary transition-all duration-200 hover:scale-105">
               <span>Home</span>
             </button>
             <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
               onClick={() => navigate("/groups")}
             >
               <span>Groups</span>
             </button>
             <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground"
+              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
               onClick={() => navigate("/profile")}
             >
               <span>Profile</span>

@@ -47,7 +47,7 @@ const JoinGroupPage = () => {
         .from("group_members")
         .insert({ group_id: group.id, user_id: user.id });
 
-      if (memberError && (memberError as any).code !== "23505") {
+      if (memberError && memberError.code !== "23505") {
         // 23505 = unique_violation (already a member)
         throw memberError;
       }
@@ -61,7 +61,7 @@ const JoinGroupPage = () => {
       });
       navigate(`/groups/${group.id}`);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Could not join group",
         description: error.message ?? "Please check the code and try again.",
@@ -83,7 +83,7 @@ const JoinGroupPage = () => {
       <header className="border-b bg-card/70 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
           <div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")}> 
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="transition-all duration-200 hover:scale-105">
               {"<-"} Back
             </Button>
             <h1 className="mt-2 text-lg font-semibold">Join a group</h1>
@@ -105,7 +105,7 @@ const JoinGroupPage = () => {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
           />
-          <Button className="w-full" disabled={joinGroup.isPending} onClick={() => joinGroup.mutate()}>
+          <Button className="w-full transition-all duration-200 hover:scale-105" disabled={joinGroup.isPending} onClick={() => joinGroup.mutate()}>
             Join group
           </Button>
           {codeFromUrl && (

@@ -1,4 +1,14 @@
-# Welcome to your Lovable project
+# Splitster - Group Expense Tracker
+
+Splitster is a group expense tracking application that helps users split bills and manage shared expenses with friends, family, or roommates.
+
+## Features
+
+- Create and join groups
+- Add and track expenses
+- Split expenses equally or with custom percentages
+- View balances and settlements
+- **New**: Group chat functionality for communication
 
 ## Project info
 
@@ -71,3 +81,13 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Database Migration
+
+To use the new chat feature, you need to run the database migration:
+
+```sh
+npx supabase db push
+```
+
+This will create the necessary tables (`chat_rooms` and `chat_messages`) and set up the appropriate Row Level Security (RLS) policies for secure group communication.

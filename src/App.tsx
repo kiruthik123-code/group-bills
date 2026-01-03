@@ -10,6 +10,7 @@ import GroupPage from "./pages/Group";
 import JoinGroupPage from "./pages/JoinGroup";
 import ProfilePage from "./pages/Profile";
 import GroupsListPage from "./pages/GroupsList";
+import UpiPaymentPage from "./pages/UpiPayment";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/groups/:groupId" element={<GroupPage />} />
             <Route path="/join" element={<JoinGroupPage />} />
             <Route path="/join/:code" element={<JoinGroupPage />} />
+            <Route path="/upi-payment" element={<UpiPaymentPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
