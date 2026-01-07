@@ -348,35 +348,41 @@ const GroupPage = () => {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
+  const handleRemoveMember = (memberId: string) => {
     if (!group || group.created_by !== user?.id || memberId === group.created_by) return;
-    
+
+    // Only set the member to remove so the confirmation dialog can show
     setMemberToRemove(memberId);
-    
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!group || !memberToRemove || group.created_by !== user?.id || memberToRemove === group.created_by) return;
+
     try {
-      // Delete the member from the group
       const { error } = await supabase
-        .from('group_members')
+        .from("group_members")
         .delete()
-        .eq('group_id', group.id)
-        .eq('user_id', memberId);
-      
+        .eq("group_id", group.id)
+        .eq("user_id", memberToRemove);
+
       if (error) throw error;
-      
+
       toast({
         title: "Member removed",
-        description: "Member has been removed from the group successfully."
+        description: "Member has been removed from the group successfully.",
       });
-      
+
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['group_members', groupId] });
-      
-    } catch (error) {
-      console.error('Error removing member:', error);
+      queryClient.invalidateQueries({ queryKey: ["group_members", groupId] });
+
+      // Close the dialog
+      setMemberToRemove(null);
+    } catch (error: any) {
+      console.error("Error removing member:", error);
       toast({
         title: "Error removing member",
         description: error.message || "An unexpected error occurred",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -572,7 +578,8 @@ const GroupPage = () => {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <Button
                 variant="destructive"
-                onClick={() => memberToRemove && handleRemoveMember(memberToRemove)}
+                onClick={confirmRemoveMember}
+                disabled={!memberToRemove}
               >
                 Remove Member
               </Button>
