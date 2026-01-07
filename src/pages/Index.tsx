@@ -207,9 +207,13 @@ const Index = () => {
 
   const generateInviteCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const array = new Uint8Array(8);
+
+    crypto.getRandomValues(array);
+
     let result = "";
-    for (let i = 0; i < 8; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < array.length; i++) {
+      result += chars[array[i] % chars.length];
     }
     return result;
   };
