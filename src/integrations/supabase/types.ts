@@ -214,6 +214,13 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      lookup_group_by_invite: {
+        Args: { invite_code_param: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
     }
     Enums: {
       transaction_status: "pending" | "settled"

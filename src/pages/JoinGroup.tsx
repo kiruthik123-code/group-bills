@@ -33,9 +33,7 @@ const JoinGroupPage = () => {
       }
 
       const { data: group, error: groupError } = await supabase
-        .from("groups")
-        .select("id, name")
-        .eq("invite_code", trimmed)
+        .rpc("lookup_group_by_invite", { invite_code_param: trimmed })
         .maybeSingle();
 
       if (groupError) throw groupError;
