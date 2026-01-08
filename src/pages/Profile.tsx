@@ -40,7 +40,6 @@ const Profile = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
-    const [showProfileWarning, setShowProfileWarning] = useState(false);
     
     // Type for profile data
     type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -76,14 +75,6 @@ const Profile = () => {
                     fullName,
                     upiId,
                 });
-
-                // After data is loaded, show warning only if something is actually missing
-                const isNameEmpty = !fullName;
-                const isUpiIdEmpty = !upiId;
-
-                if (isNameEmpty || isUpiIdEmpty) {
-                    setShowProfileWarning(true);
-                }
             } catch (error) {
                 toast({
                     title: "Error fetching profile",
@@ -115,9 +106,6 @@ const Profile = () => {
 
             if (error) throw error;
 
-            // Hide the warning after successful update
-            setShowProfileWarning(false);
-            
             toast({
                 title: "Profile updated",
                 description: "Your information has been saved successfully.",
@@ -259,36 +247,6 @@ const Profile = () => {
                 {/* Bottom Nav Spacer */}
                 <div className="h-16" />
             </div>
-            
-            <AlertDialog open={showProfileWarning} onOpenChange={setShowProfileWarning}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Profile Details Missing</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {(() => {
-                                const fullName = form.watch("fullName");
-                                const upiId = form.watch("upiId");
-                                
-                                const isNameEmpty = !fullName || fullName.trim() === "";
-                                const isUpiIdEmpty = !upiId || upiId.trim() === "";
-                                
-                                if (isNameEmpty && isUpiIdEmpty) {
-                                    return "Your name and UPI ID are missing. Please update your profile to fully use SplitStuff.";
-                                } else if (isNameEmpty) {
-                                    return "Your name is missing. Please update your profile to fully use SplitStuff.";
-                                } else {
-                                    return "Your UPI ID is missing. Please update your profile to fully use SplitStuff.";
-                                }
-                            })()}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setShowProfileWarning(false)}>
-                            OK
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
             
             <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
                 <AlertDialogContent>
