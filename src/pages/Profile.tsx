@@ -41,7 +41,6 @@ const Profile = () => {
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     const [showProfileWarning, setShowProfileWarning] = useState(false);
-    const [hasShownProfileWarning, setHasShownProfileWarning] = useState(false);
     
     // Type for profile data
     type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -65,15 +64,25 @@ const Profile = () => {
                     .from("profiles")
                     .select("full_name, upi_id")
                     .eq("id", user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (error) throw error;
 
-                if (data) {
-                    form.reset({
-                        fullName: data.full_name || "",
-                        upiId: data.upi_id || "",
-                    });
+                // Normalize values and update form
+                const fullName = data?.full_name?.trim() ?? "";
+                const upiId = data?.upi_id?.trim() ?? "";
+
+                form.reset({
+                    fullName,
+                    upiId,
+                });
+
+                // After data is loaded, show warning only if something is actually missing
+                const isNameEmpty = !fullName;
+                const isUpiIdEmpty = !upiId;
+
+                if (isNameEmpty || isUpiIdEmpty) {
+                    setShowProfileWarning(true);
                 }
             } catch (error) {
                 toast({
@@ -87,21 +96,8 @@ const Profile = () => {
         fetchProfile();
     }, [user, form, toast]);
     
-    // Show a one-time warning per visit if either field is empty
-    useEffect(() => {
-        if (hasShownProfileWarning) return;
+    // Warning is now handled once after profile load in fetchProfile
 
-        const fullName = form.getValues("fullName")?.trim();
-        const upiId = form.getValues("upiId")?.trim();
-
-        const isNameEmpty = !fullName;
-        const isUpiIdEmpty = !upiId;
-
-        if (isNameEmpty || isUpiIdEmpty) {
-            setShowProfileWarning(true);
-            setHasShownProfileWarning(true);
-        }
-    }, [form, hasShownProfileWarning]);
 
     const onSubmit = async (values: ProfileFormValues) => {
         if (!user) return;
