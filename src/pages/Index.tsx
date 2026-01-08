@@ -296,14 +296,14 @@ const Index = () => {
         <section className="mt-6 flex-1 px-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Button
-              className="hover-scale w-full rounded-2xl py-6"
+              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.02]"
               onClick={() => setIsCreateDialogOpen(true)}
             >
               Create Group
             </Button>
             <Button
               variant="outline"
-              className="hover-scale w-full rounded-2xl py-6"
+              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.02]"
               onClick={() => navigate("/join")}
             >
               Join Group

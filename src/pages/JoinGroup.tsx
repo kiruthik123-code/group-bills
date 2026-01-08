@@ -77,49 +77,37 @@ const JoinGroupPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))]">
+    <div className="min-h-screen bg-background">
       <header className="border-b bg-card/70 backdrop-blur">
-        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
           <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/")}
-              className="hover-scale rounded-full px-3 text-xs"
-            >
-              f Back
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="transition-all duration-200 hover:scale-105">
+              {"<-"} Back
             </Button>
-            <h1 className="mt-3 text-base font-semibold text-foreground">Join a group</h1>
+            <h1 className="mt-2 text-lg font-semibold">Join a group</h1>
             <p className="text-xs text-muted-foreground">
-              Enter an invite code from a friend to join their group.
+              Enter an invite code or open a shared link to join an existing group.
             </p>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-md flex-1 items-center px-4 py-8">
-        <Card className="w-full space-y-4 rounded-3xl border-0 bg-card/90 p-5 shadow-lg animate-enter">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor="invite-code">
-              Invite code
-            </label>
-            <Input
-              id="invite-code"
-              placeholder="e.g., ABCD1234"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              className="h-10 rounded-2xl"
-            />
-          </div>
-          <Button
-            className="hover-scale w-full rounded-2xl py-2.5 text-sm font-semibold"
-            disabled={joinGroup.isPending}
-            onClick={() => joinGroup.mutate()}
-          >
-            {joinGroup.isPending ? "Joining..." : "Join group"}
+      <main className="mx-auto max-w-md space-y-4 px-4 py-8">
+        <Card className="p-4 space-y-4">
+          <label className="text-sm font-medium text-muted-foreground" htmlFor="invite-code">
+            Invite code
+          </label>
+          <Input
+            id="invite-code"
+            placeholder="e.g., ABCD1234"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+          />
+          <Button className="w-full transition-all duration-200 hover:scale-105" disabled={joinGroup.isPending} onClick={() => joinGroup.mutate()}>
+            Join group
           </Button>
           {codeFromUrl && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               This link contains an invite code. Confirm to join the group.
             </p>
           )}
