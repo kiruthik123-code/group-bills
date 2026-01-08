@@ -41,6 +41,7 @@ const Profile = () => {
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     const [showProfileWarning, setShowProfileWarning] = useState(false);
+    const [hasShownProfileWarning, setHasShownProfileWarning] = useState(false);
     
     // Type for profile data
     type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -86,21 +87,21 @@ const Profile = () => {
         fetchProfile();
     }, [user, form, toast]);
     
-    // Check if profile is empty (both name and UPI ID are missing) after form is loaded
+    // Show a one-time warning per visit if either field is empty
     useEffect(() => {
-        const subscription = form.watch((values) => {
-            const isNameEmpty = !values.fullName || values.fullName.trim() === "";
-            const isUpiIdEmpty = !values.upiId || values.upiId.trim() === "";
-            
-            if (isNameEmpty || isUpiIdEmpty) {
-                setShowProfileWarning(true);
-            } else {
-                setShowProfileWarning(false); // Hide warning if both fields are filled
-            }
-        });
-        
-        return () => subscription.unsubscribe();
-    }, [form]);
+        if (hasShownProfileWarning) return;
+
+        const fullName = form.getValues("fullName")?.trim();
+        const upiId = form.getValues("upiId")?.trim();
+
+        const isNameEmpty = !fullName;
+        const isUpiIdEmpty = !upiId;
+
+        if (isNameEmpty || isUpiIdEmpty) {
+            setShowProfileWarning(true);
+            setHasShownProfileWarning(true);
+        }
+    }, [form, hasShownProfileWarning]);
 
     const onSubmit = async (values: ProfileFormValues) => {
         if (!user) return;
