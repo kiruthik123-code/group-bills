@@ -61,6 +61,7 @@ const expenseSchema = z.object({
   }),
   paidBy: z.string().min(1, "Please select who paid"),
   splitType: z.enum(["equal", "custom"], { message: "Please select a split type" }),
+  description: z.string().max(500).optional(),
 });
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -100,6 +101,7 @@ const GroupPage = () => {
       amount: "",
       paidBy: user?.id || "",
       splitType: "equal",
+      description: "",
     },
   });
   
@@ -209,6 +211,7 @@ const GroupPage = () => {
           title: values.title,
           amount: amount,
           paid_by: values.paidBy,
+          notes: values.description?.trim() || null,
         })
         .select("id")
         .single() as { data: { id: string } | null; error: any; };
@@ -738,9 +741,30 @@ const GroupPage = () => {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>Title</FormLabel>
                       <FormControl>
                         <Input placeholder="Dinner, Taxi, Groceries..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center justify-between">
+                        <span>Description</span>
+                        <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                      </FormLabel>
+                      <FormControl>
+                        <textarea
+                          className="flex min-h-[60px] w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="Add a note about this expense (optional)"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
