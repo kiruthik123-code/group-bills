@@ -46,84 +46,6 @@ export type Database = {
           },
         ]
       }
-      contacts: {
-        Row: {
-          contact_user_id: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          contact_user_id: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          contact_user_id?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contacts_contact_user_id_fkey"
-            columns: ["contact_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      direct_messages: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          read_at: string | null
-          receiver_id: string
-          sender_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          read_at?: string | null
-          receiver_id: string
-          sender_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          read_at?: string | null
-          receiver_id?: string
-          sender_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "direct_messages_receiver_fkey"
-            columns: ["receiver_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "direct_messages_sender_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       expense_splits: {
         Row: {
           expense_id: string
@@ -194,58 +116,6 @@ export type Database = {
           },
         ]
       }
-      group_invites: {
-        Row: {
-          created_at: string
-          group_id: string
-          id: string
-          invitee_id: string
-          inviter_id: string
-          responded_at: string | null
-          status: Database["public"]["Enums"]["invite_status"]
-        }
-        Insert: {
-          created_at?: string
-          group_id: string
-          id?: string
-          invitee_id: string
-          inviter_id: string
-          responded_at?: string | null
-          status?: Database["public"]["Enums"]["invite_status"]
-        }
-        Update: {
-          created_at?: string
-          group_id?: string
-          id?: string
-          invitee_id?: string
-          inviter_id?: string
-          responded_at?: string | null
-          status?: Database["public"]["Enums"]["invite_status"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "group_invites_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "group_invites_invitee_fkey"
-            columns: ["invitee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "group_invites_inviter_fkey"
-            columns: ["inviter_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       group_members: {
         Row: {
           group_id: string
@@ -307,7 +177,6 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
-          phone_number: string | null
           updated_at: string
           upi_id: string | null
         }
@@ -315,7 +184,6 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
-          phone_number?: string | null
           updated_at?: string
           upi_id?: string | null
         }
@@ -323,7 +191,6 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
-          phone_number?: string | null
           updated_at?: string
           upi_id?: string | null
         }
@@ -388,7 +255,6 @@ export type Database = {
       }
     }
     Enums: {
-      invite_status: "pending" | "accepted" | "declined"
       transaction_status: "pending" | "settled"
     }
     CompositeTypes: {
@@ -517,7 +383,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      invite_status: ["pending", "accepted", "declined"],
       transaction_status: ["pending", "settled"],
     },
   },
