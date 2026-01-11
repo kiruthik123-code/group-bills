@@ -683,7 +683,7 @@ const GroupPage = () => {
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                   <p className="cursor-default max-w-xs truncate">
+                                   <p className="cursor-default w-full max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
                                      {previewText}
                                    </p>
                                  </TooltipTrigger>
