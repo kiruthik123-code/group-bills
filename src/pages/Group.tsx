@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -653,53 +654,80 @@ const GroupPage = () => {
               <Skeleton className="h-20 w-full rounded-xl" />
             </div>
           ) : expenses && expenses.length > 0 ? (
-            expenses.map((expense) => (
-              <Card key={expense.id} className="p-4 rounded-2xl border-0 shadow-sm bg-white/80 backdrop-blur transition-all hover:scale-[1.01]">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Receipt className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">{expense.title}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{getMemberName(expense.paid_by)}</span> paid {currency.format(expense.amount)}
-                      </p>
-                      <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>{format(new Date(expense.created_at), "MMM d, yyyy")}</span>
+            expenses.map((expense) => {
+              const description = expense.notes?.trim() || "";
+              const maxPreviewLength = 80;
+              const isLongDescription = description.length > maxPreviewLength;
+              const previewText = isLongDescription
+                ? description.slice(0, maxPreviewLength) + "…"
+                : description;
+
+              return (
+                <Card key={expense.id} className="p-4 rounded-2xl border-0 shadow-sm bg-white/80 backdrop-blur transition-all hover:scale-[1.01]">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Receipt className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">{expense.title}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{getMemberName(expense.paid_by)}</span> paid {currency.format(expense.amount)}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>{format(new Date(expense.created_at), "MMM d, yyyy")}</span>
+                        </div>
+                        {description && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="cursor-default break-words">
+                                    {previewText}
+                                  </p>
+                                </TooltipTrigger>
+                                {isLongDescription && (
+                                  <TooltipContent className="max-w-xs text-xs">
+                                    <p className="whitespace-pre-wrap break-words">{description}</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
                       </div>
                     </div>
+                    <div className="text-right">
+                      {expense.paid_by === user?.id ? (
+                        <>
+                          <p className="font-medium text-emerald-600">
+                            You get
+                          </p>
+                          <p className="font-bold text-emerald-600">
+                            {currency.format(expense.expense_splits?.reduce((total, split) => {
+                              if (split.user_id !== user?.id) {
+                                return total + split.share_amount;
+                              }
+                              return total;
+                            }, 0) || 0)}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-destructive">
+                            You owe
+                          </p>
+                          <p className="font-bold text-destructive">
+                            {currency.format(expense.expense_splits?.find(split => split.user_id === user?.id)?.share_amount || 0)}
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    {expense.paid_by === user?.id ? (
-                      <>
-                        <p className="font-medium text-emerald-600">
-                          You get
-                        </p>
-                        <p className="font-bold text-emerald-600">
-                          {currency.format(expense.expense_splits?.reduce((total, split) => {
-                            if (split.user_id !== user?.id) {
-                              return total + split.share_amount;
-                            }
-                            return total;
-                          }, 0) || 0)}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="font-medium text-destructive">
-                          You owe
-                        </p>
-                        <p className="font-bold text-destructive">
-                          {currency.format(expense.expense_splits?.find(split => split.user_id === user?.id)?.share_amount || 0)}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="rounded-full bg-muted p-4">
