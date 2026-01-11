@@ -62,7 +62,7 @@ const expenseSchema = z.object({
   }),
   paidBy: z.string().min(1, "Please select who paid"),
   splitType: z.enum(["equal", "custom"], { message: "Please select a split type" }),
-  description: z.string().max(200, "Description must be 200 characters or less").optional(),
+  description: z.string().max(100, "Description must be 100 characters or less").optional(),
 });
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -783,7 +783,7 @@ const GroupPage = () => {
                   name="description"
                   render={({ field }) => {
                     const currentLength = field.value?.length ?? 0;
-                    const maxLength = 200;
+                    const maxLength = 100;
 
                     return (
                       <FormItem>
