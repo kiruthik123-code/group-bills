@@ -270,13 +270,7 @@ const GroupPage = () => {
     mutationFn: async (expenseId: string) => {
       if (!groupId || !user) throw new Error("Missing data");
 
-      // Delete splits first to avoid any foreign key constraints
-      const { error: splitsError } = await supabase
-        .from("expense_splits")
-        .delete()
-        .eq("expense_id", expenseId);
-      if (splitsError) throw splitsError;
-
+      // Delete the expense directly; related splits are handled in the backend
       const { error: expenseError } = await supabase
         .from("expenses")
         .delete()
