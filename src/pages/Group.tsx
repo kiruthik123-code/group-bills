@@ -93,6 +93,7 @@ const GroupPage = () => {
   const [isDissolveDialogOpen, setIsDissolveDialogOpen] = useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
 
   const form = useForm<z.infer<typeof expenseSchema>>({
@@ -586,11 +587,36 @@ const GroupPage = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <Button variant="destructive" onClick={handleLeaveGroup}>
+                Leave Group
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Expense Dialog */}
+        <AlertDialog open={!!expenseToDelete} onOpenChange={(open) => !open && setExpenseToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently remove the expense and its splits from this group.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteExpenseMutation.isPending}>Cancel</AlertDialogCancel>
               <Button
                 variant="destructive"
-                onClick={handleLeaveGroup}
+                onClick={() => {
+                  if (expenseToDelete) {
+                    deleteExpenseMutation.mutate(expenseToDelete, {
+                      onSettled: () => setExpenseToDelete(null),
+                    });
+                  }
+                }}
+                disabled={deleteExpenseMutation.isPending}
               >
-                Leave Group
+                {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -734,7 +760,7 @@ const GroupPage = () => {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteExpenseMutation.mutate(expense.id)}
+                          onClick={() => setExpenseToDelete(expense.id)}
                           disabled={deleteExpenseMutation.isPending}
                         >
                           <span className="sr-only">Delete expense</span>
