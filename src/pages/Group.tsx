@@ -203,8 +203,6 @@ const GroupPage = () => {
       const amount = parseFloat(values.amount);
       
       // 1. Create expense
-      // Note: created_by_user_id column may not exist in remote DB yet
-      // The migration needs to be applied to the remote database
       const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
         .insert({
@@ -215,10 +213,9 @@ const GroupPage = () => {
           notes: values.description?.trim() || null,
         })
         .select("id")
-        .single() as { data: { id: string } | null; error: any; };
+        .single() as { data: { id: string } | null; error: any };
 
-      if (!expenseData) throw new Error('Failed to create expense');
-
+      if (!expenseData) throw new Error("Failed to create expense");
       if (expenseError) throw expenseError;
 
       // 2. Create splits based on split type
@@ -226,16 +223,17 @@ const GroupPage = () => {
       if (values.splitType === "equal") {
         const splitAmount = amount / members.length;
         splits = members.map((member) => ({
-          expense_id: expenseData!.id,
+          expense_id: expenseData.id,
           user_id: member.id,
           share_amount: splitAmount,
         }));
-      } else { // custom split
+      } else {
+        // custom split
         splits = members.map((member) => {
           const percentage = parseFloat(customSplits[member.id] || "0");
           const shareAmount = (amount * percentage) / 100;
           return {
-            expense_id: expenseData!.id,
+            expense_id: expenseData.id,
             user_id: member.id,
             share_amount: shareAmount,
           };
@@ -267,6 +265,38 @@ const GroupPage = () => {
     },
   });
 
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => {
+      if (!groupId || !user) throw new Error("Missing data");
+
+      // Delete splits first to avoid any foreign key constraints
+      const { error: splitsError } = await supabase
+        .from("expense_splits")
+        .delete()
+        .eq("expense_id", expenseId);
+      if (splitsError) throw splitsError;
+
+      const { error: expenseError } = await supabase
+        .from("expenses")
+        .delete()
+        .eq("id", expenseId);
+      if (expenseError) throw expenseError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group_expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+      queryClient.invalidateQueries({ queryKey: ["payables"] });
+      toast({ title: "Expense deleted" });
+    },
+    onError: (error: Error) => {
+      console.error("Expense delete error:", error);
+      toast({
+        title: "Error deleting expense",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    },
+  });
   const onSubmit = (values: z.infer<typeof expenseSchema>) => {
     // Validate custom split percentages if custom split is selected
     if (values.splitType === "custom" && members) {
@@ -664,7 +694,7 @@ const GroupPage = () => {
 
               return (
                 <Card key={expense.id} className="p-4 rounded-2xl border-0 shadow-sm bg-white/80 backdrop-blur transition-all hover:scale-[1.01]">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                         <Receipt className="h-5 w-5" />
@@ -683,10 +713,10 @@ const GroupPage = () => {
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                   <p className="cursor-default w-full max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
-                                     {previewText}
-                                   </p>
-                                 </TooltipTrigger>
+                                  <p className="cursor-default w-full max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                                    {previewText}
+                                  </p>
+                                </TooltipTrigger>
                                 {isLongDescription && (
                                   <TooltipContent className="max-w-xs text-xs">
                                     <p className="whitespace-pre-wrap break-words">{description}</p>
@@ -698,31 +728,45 @@ const GroupPage = () => {
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      {expense.paid_by === user?.id ? (
-                        <>
-                          <p className="font-medium text-emerald-600">
-                            You get
-                          </p>
-                          <p className="font-bold text-emerald-600">
-                            {currency.format(expense.expense_splits?.reduce((total, split) => {
-                              if (split.user_id !== user?.id) {
-                                return total + split.share_amount;
-                              }
-                              return total;
-                            }, 0) || 0)}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-medium text-destructive">
-                            You owe
-                          </p>
-                          <p className="font-bold text-destructive">
-                            {currency.format(expense.expense_splits?.find(split => split.user_id === user?.id)?.share_amount || 0)}
-                          </p>
-                        </>
+                    <div className="flex flex-col items-end gap-1">
+                      {expense.paid_by === user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteExpenseMutation.mutate(expense.id)}
+                          disabled={deleteExpenseMutation.isPending}
+                        >
+                          <span className="sr-only">Delete expense</span>
+                          ×
+                        </Button>
                       )}
+                      <div className="text-right">
+                        {expense.paid_by === user?.id ? (
+                          <>
+                            <p className="font-medium text-emerald-600">You get</p>
+                            <p className="font-bold text-emerald-600">
+                              {currency.format(
+                                expense.expense_splits?.reduce((total, split) => {
+                                  if (split.user_id !== user?.id) {
+                                    return total + split.share_amount;
+                                  }
+                                  return total;
+                                }, 0) || 0,
+                              )}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium text-destructive">You owe</p>
+                            <p className="font-bold text-destructive">
+                              {currency.format(
+                                expense.expense_splits?.find((split) => split.user_id === user?.id)?.share_amount || 0,
+                              )}
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>
