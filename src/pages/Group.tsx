@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Share2, Receipt, Calendar, User, Loader2, MoreHorizontal, LogOut } from "lucide-react";
+import { ArrowLeft, Plus, Share2, Receipt, Calendar, User, Loader2, MoreHorizontal, LogOut, X } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,6 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const expenseSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -62,7 +63,7 @@ const expenseSchema = z.object({
   }),
   paidBy: z.string().min(1, "Please select who paid"),
   splitType: z.enum(["equal", "custom"], { message: "Please select a split type" }),
-  description: z.string().max(100, "Description must be 100 characters or less").optional(),
+  description: z.string().max(30, "Description must be 30 characters or less").optional(),
 });
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -70,6 +71,7 @@ const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "
 type GroupMember = {
   id: string;
   name: string;
+  avatar_url: string | null;
 };
 
 type Expense = Database['public']['Tables']['expenses']['Row'] & {
@@ -79,7 +81,7 @@ type Expense = Database['public']['Tables']['expenses']['Row'] & {
     share_amount: number;
   }[];
 };
-type Profile = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name'>;
+type Profile = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name' | 'avatar_url'>;
 
 
 const GroupPage = () => {
@@ -106,7 +108,7 @@ const GroupPage = () => {
       description: "",
     },
   });
-  
+
   // State for custom split percentages
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
 
@@ -144,19 +146,20 @@ const GroupPage = () => {
       // 2. Get profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, avatar_url")
         .in("id", userIds);
 
       if (profilesError) throw profilesError;
 
-      const profileMap = new Map(profilesData?.map((p: { id: string; full_name: string }) => [p.id, p]));
+      const profileMap = new Map(profilesData?.map((p: { id: string; full_name: string; avatar_url: string | null }) => [p.id, p]));
 
-      return userIds.map(userId => {
-        const profile = profileMap.get(userId);
+      return userIds.map((id) => {
+        const profile = profilesData?.find((p) => p.id === id);
         return {
-          id: userId,
+          id,
           name: profile?.full_name || "Unknown Member",
-        } as GroupMember;
+          avatar_url: profile?.avatar_url || null,
+        };
       });
     },
     enabled: !!groupId,
@@ -171,13 +174,13 @@ const GroupPage = () => {
         .select("*, expense_splits(user_id, share_amount)")
         .eq("group_id", groupId as string)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data as Expense[];
     },
     enabled: !!groupId,
   });
-  
+
   // Initialize custom splits when members change
   useEffect(() => {
     if (members && members.length > 0) {
@@ -202,7 +205,7 @@ const GroupPage = () => {
       if (!groupId || !user || !members) throw new Error("Missing data");
 
       const amount = parseFloat(values.amount);
-      
+
       // 1. Create expense
       const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
@@ -252,7 +255,7 @@ const GroupPage = () => {
       queryClient.invalidateQueries({ queryKey: ["payables"] });
       setIsAddExpenseOpen(false);
       form.reset();
-      
+
       const splitTypeText = variables.splitType === "equal" ? "equally" : "with custom percentages";
       toast({ title: "Expense added", description: `Split ${splitTypeText} among all members.` });
     },
@@ -299,7 +302,7 @@ const GroupPage = () => {
         const percentage = parseFloat(customSplits[member.id] || "0");
         return sum + (isNaN(percentage) ? 0 : percentage);
       }, 0);
-      
+
       if (Math.abs(totalPercentage - 100) > 0.01) { // Allow small floating point differences
         toast({
           title: "Invalid split percentages",
@@ -309,7 +312,7 @@ const GroupPage = () => {
         return;
       }
     }
-    
+
     createExpenseMutation.mutate(values);
   };
 
@@ -330,43 +333,43 @@ const GroupPage = () => {
 
   const handleDissolveGroup = async () => {
     if (!group || group.created_by !== user?.id) return;
-    
+
     try {
       // Delete all expenses in the group first (due to foreign key constraints)
       const { error: expensesError } = await supabase
         .from('expenses')
         .delete()
         .eq('group_id', group.id);
-      
+
       if (expensesError) throw expensesError;
-      
+
       // Delete all group members
       const { error: membersError } = await supabase
         .from('group_members')
         .delete()
         .eq('group_id', group.id);
-      
+
       if (membersError) throw membersError;
-      
+
       // Finally delete the group
       const { error: groupError } = await supabase
         .from('groups')
         .delete()
         .eq('id', group.id);
-      
+
       if (groupError) throw groupError;
-      
+
       toast({
         title: "Group dissolved",
         description: `The group "${group.name}" has been dissolved successfully.`
       });
-      
+
       // Navigate back to home
       navigate('/');
-      
+
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      
+
     } catch (error) {
       console.error('Error dissolving group:', error);
       toast({
@@ -418,7 +421,7 @@ const GroupPage = () => {
 
   const handleLeaveGroup = async () => {
     if (!group || !user) return;
-    
+
     try {
       // If the user is the group creator, they cannot leave - they must dissolve the group
       if (group.created_by === user.id) {
@@ -429,27 +432,27 @@ const GroupPage = () => {
         });
         return;
       }
-      
+
       // Delete the user from the group
       const { error } = await supabase
         .from('group_members')
         .delete()
         .eq('group_id', group.id)
         .eq('user_id', user.id);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Left group",
         description: "You have left the group successfully."
       });
-      
+
       // Navigate back to home
       navigate('/');
-      
+
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      
+
     } catch (error) {
       console.error('Error leaving group:', error);
       toast({
@@ -531,7 +534,7 @@ const GroupPage = () => {
                     onClick={() => setIsDissolveDialogOpen(true)}
                     className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
+                    <X className="h-4 w-4 mr-2" />
                     Dissolve Group
                   </DropdownMenuItem>
                 )}
@@ -615,10 +618,10 @@ const GroupPage = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        
+
         {/* Remove Member Dialog */}
-        <AlertDialog 
-          open={!!memberToRemove} 
+        <AlertDialog
+          open={!!memberToRemove}
           onOpenChange={(open) => !open && setMemberToRemove(null)}
         >
           <AlertDialogContent>
@@ -643,53 +646,60 @@ const GroupPage = () => {
 
         {/* Members List */}
         {showMembers && (
-          <div className="p-4 border-b bg-muted/30">
-            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Group Members ({members?.length || 0})
+          <div className="p-4 border-b bg-white/30 backdrop-blur-sm shadow-inner overflow-x-auto">
+            <h2 className="text-xs font-bold text-muted-foreground mb-4 flex items-center gap-2 px-1 uppercase tracking-wider">
+              <User className="h-3.5 w-3.5" />
+              Members ({members?.length || 0})
             </h2>
-            <div className="space-y-2">
+            <div className="flex flex-wrap gap-5 justify-start">
               {members && members.length > 0 ? (
                 members.map((member) => (
-                  <div 
-                    key={member.id} 
-                    className={`flex items-center justify-between p-3 rounded-lg ${member.id === group?.created_by ? 'bg-primary/10 border border-primary/20' : 'bg-white/80'}`}
+                  <div
+                    key={member.id}
+                    className="flex flex-col items-center gap-1.5 group relative animate-in fade-in zoom-in duration-300"
+                    style={{ width: '60px' }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="text-sm font-medium">
+                    <div className="relative">
+                      <Avatar className={`h-12 w-12 border-2 transition-all duration-300 ${member.id === group?.created_by ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-background'} group-hover:scale-110`}>
+                        <AvatarImage src={member.avatar_url || ""} className="object-cover" />
+                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
                           {member.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">{member.name}</p>
-                        {member.id === group?.created_by && (
-                          <p className="text-xs text-primary font-medium">Group Creator</p>
-                        )}
-                      </div>
+                        </AvatarFallback>
+                      </Avatar>
+
+                      {/* Creator badge */}
+                      {member.id === group?.created_by && (
+                        <div className="absolute -top-1 -right-1 bg-primary text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm border border-white">
+                          C
+                        </div>
+                      )}
+
+                      {/* Remove member button for creator */}
+                      {group?.created_by === user?.id && member.id !== user?.id && (
+                        <button
+                          className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground border-2 border-white flex items-center justify-center shadow-md hover:bg-destructive/90 transition-all scale-0 group-hover:scale-100"
+                          onClick={() => handleRemoveMember(member.id)}
+                          title="Remove member"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex flex-col items-center w-full">
+                      <p className="text-[11px] font-semibold text-foreground text-center truncate w-full group-hover:text-primary transition-colors">
+                        {member.name.split(' ')[0]}
+                      </p>
                       {member.id === user?.id && (
-                        <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full">
+                        <span className="text-[9px] text-muted-foreground bg-muted px-1.5 rounded-[3px]">
                           You
                         </span>
-                      )}
-                      {group?.created_by === user?.id && member.id !== user?.id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-destructive"
-                          onClick={() => handleRemoveMember(member.id)}
-                        >
-                          <span className="sr-only">Remove member</span>
-                          ×
-                        </Button>
                       )}
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No members in this group</p>
+                <p className="text-xs text-muted-foreground text-center py-2 w-full">No members</p>
               )}
             </div>
           </div>
@@ -847,7 +857,7 @@ const GroupPage = () => {
                   name="description"
                   render={({ field }) => {
                     const currentLength = field.value?.length ?? 0;
-                    const maxLength = 100;
+                    const maxLength = 30;
 
                     return (
                       <FormItem>
@@ -990,7 +1000,7 @@ const GroupPage = () => {
             </Form>
           </DialogContent>
         </Dialog>
-        
+
         {/* Invite Members Dialog */}
         <AlertDialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
           <AlertDialogContent>
@@ -1000,12 +1010,12 @@ const GroupPage = () => {
                 Share this invite code with others to join your group.
               </AlertDialogDescription>
               <div className="flex items-center space-x-2">
-                <Input 
-                  value={group?.invite_code || ""} 
-                  readOnly 
+                <Input
+                  value={group?.invite_code || ""}
+                  readOnly
                   className="font-mono text-center"
                 />
-                <Button 
+                <Button
                   onClick={() => {
                     navigator.clipboard.writeText(group?.invite_code || "");
                     toast({

@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -165,6 +166,23 @@ const Index = () => {
     enabled: !!user,
   });
 
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000,   // 10 minutes
+  });
+
   const [selectedPayee, setSelectedPayee] = useState<
     | { counterpartyId: string; name: string; amount: number; upiId: string | null }
     | null
@@ -230,6 +248,15 @@ const Index = () => {
       return;
     }
 
+    if (name.length > 15) {
+      toast({
+        title: "Group name too long",
+        description: "Group name must be 15 characters or less.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const inviteCode = generateInviteCode();
       const inviteLink = `https://splitstuff.app/join/${inviteCode}`;
@@ -269,11 +296,36 @@ const Index = () => {
     );
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
       <main className="mx-auto flex max-w-md flex-col pb-20">
-        <header className="px-4 pt-10 pb-4">
-          <p className="text-sm font-semibold text-foreground">Hey there! 👋</p>
+        <header className="px-4 pt-10 pb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Welcome back,</p>
+            <h1 className="text-xl font-bold text-foreground">
+              {profile?.full_name?.split(' ')[0] || "Friend"}! 👋
+            </h1>
+          </div>
+          <button
+            onClick={() => navigate("/profile")}
+            className="transition-transform hover:scale-110 active:scale-95"
+          >
+            <Avatar className="h-10 w-10 border-2 border-white shadow-md">
+              <AvatarImage src={profile?.avatar_url || ""} className="object-cover" />
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold uppercase">
+                {getInitials(profile?.full_name || user?.email || "U")}
+              </AvatarFallback>
+            </Avatar>
+          </button>
         </header>
 
         <section className="px-4">
@@ -470,8 +522,12 @@ const Index = () => {
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="Goa Trip, Roommates, Office lunch..."
                 className="h-9 rounded-2xl"
+                maxLength={15}
                 autoFocus
               />
+              <p className="text-[10px] text-muted-foreground text-right">
+                {newGroupName.length}/15 characters
+              </p>
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>

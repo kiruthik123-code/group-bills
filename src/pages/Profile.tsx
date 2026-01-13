@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowLeft, Loader2, LogOut } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut, Eye, Pencil, Upload, UserPen, ZoomIn, ZoomOut, X, RotateCcw, RotateCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
+import AvatarEditor from 'react-avatar-editor';
 
 const profileSchema = z.object({
     fullName: z
@@ -39,10 +42,20 @@ const Profile = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
-    const [isSaving, setIsSaving] = useState(false);
-    
     // Type for profile data
     type ProfileFormValues = z.infer<typeof profileSchema>;
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
+    const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+    const [isViewingAvatar, setIsViewingAvatar] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [scale, setScale] = useState(1);
+    const [rotation, setRotation] = useState(0);
+    const [position, setPosition] = useState({ x: 0.5, y: 0.5 });
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const avatarEditorRef = useRef(null);
 
     // Define form
     const form = useForm<ProfileFormValues>({
@@ -61,7 +74,7 @@ const Profile = () => {
             try {
                 const { data, error } = await supabase
                     .from("profiles")
-                    .select("full_name, upi_id")
+                    .select("full_name, upi_id, avatar_url")
                     .eq("id", user.id)
                     .maybeSingle();
 
@@ -70,6 +83,7 @@ const Profile = () => {
                 // Normalize values and update form
                 const fullName = data?.full_name?.trim() ?? "";
                 const upiId = data?.upi_id?.trim() ?? "";
+                setAvatarUrl(data?.avatar_url ?? null);
 
                 form.reset({
                     fullName,
@@ -85,8 +99,8 @@ const Profile = () => {
         };
 
         fetchProfile();
-    }, [user, form, toast]);
-    
+    }, [user, form, toast, supabase]);
+
     // Warning is now handled once after profile load in fetchProfile
 
 
@@ -122,7 +136,7 @@ const Profile = () => {
     };
 
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    
+
     const handleLogout = async () => {
         try {
             await supabase.auth.signOut();
@@ -133,6 +147,93 @@ const Profile = () => {
                 description: (error as Error).message || "Please try again",
                 variant: "destructive",
             });
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+                setIsEditingAvatar(true);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleUploadAvatar = async (editorRef: React.RefObject<any>) => {
+        if (!user || !editorRef.current) return;
+
+        setUploading(true);
+        try {
+            // Get the cropped image from the editor
+            const canvas = editorRef.current.getImageScaledToCanvas();
+            const base64Image = canvas.toDataURL();
+            
+            // Convert base64 to blob
+            const response = await fetch(base64Image);
+            const blob = await response.blob();
+            
+            // Validate image type
+            const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!validImageTypes.includes(blob.type)) {
+                throw new Error('Invalid image type. Please upload a JPEG, PNG, GIF, or WEBP image.');
+            }
+            
+            const fileExt = blob.type.split('/')[1];
+            const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            // Delete old avatar if it exists
+            if (avatarUrl) {
+                const oldFilePath = avatarUrl.split('/').pop();
+                if (oldFilePath) {
+                    try {
+                        await supabase.storage
+                            .from('avatars')
+                            .remove([`${user.id}/${oldFilePath}`]);
+                    } catch (deleteError) {
+                        console.warn('Failed to delete old avatar:', deleteError);
+                    }
+                }
+            }
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, blob, {
+                    cacheControl: '3600',
+                    upsert: true
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+                .eq('id', user.id);
+
+            if (updateError) throw updateError;
+
+            setAvatarUrl(publicUrl);
+            setIsEditingAvatar(false);
+            setIsAvatarDialogOpen(false);
+            toast({
+                title: "Avatar updated",
+                description: "Your profile picture has been updated.",
+            });
+        } catch (error) {
+            toast({
+                title: "Upload failed",
+                description: (error as Error).message || "An error occurred while uploading your avatar",
+                variant: "destructive",
+            });
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -181,14 +282,24 @@ const Profile = () => {
                 </header>
 
                 <div className="p-4 space-y-6">
-                    <div className="flex flex-col items-center justify-center space-y-3 py-4">
-                        <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                            <AvatarImage src="" />
-                            <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                                {getInitials(form.watch("fullName") || "User")}
-                            </AvatarFallback>
-                        </Avatar>
-                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    <div className="flex flex-col items-center justify-center space-y-4 py-4">
+                        <div className="relative group">
+                            <Avatar className="h-32 w-32 border-4 border-white shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-focus:ring-4 group-focus:ring-primary/30">
+                                <AvatarImage src={avatarUrl || ""} className="object-cover" />
+                                <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-primary/20 to-secondary/20 text-primary uppercase flex items-center justify-center">
+                                    {getInitials(form.watch("fullName") || "User")}
+                                </AvatarFallback>
+                            </Avatar>
+                            <button
+                                onClick={() => setIsAvatarDialogOpen(true)}
+                                className="absolute -bottom-2 -right-2 bg-primary text-white p-3 rounded-full shadow-lg hover:bg-primary/90 transition-all hover:scale-110 border-4 border-white group-hover:scale-125 duration-300"
+                                aria-label="Edit profile picture"
+                            >
+                                <UserPen className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground font-medium">{user?.email}</p>
                     </div>
 
                     <Form {...form}>
@@ -247,7 +358,7 @@ const Profile = () => {
                 {/* Bottom Nav Spacer */}
                 <div className="h-16" />
             </div>
-            
+
             <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -258,7 +369,7 @@ const Profile = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                             onClick={handleLogout}
                             className="bg-destructive hover:bg-destructive/90"
                         >
@@ -267,6 +378,240 @@ const Profile = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Avatar Options Dialog */}
+            <Dialog open={isAvatarDialogOpen} onOpenChange={setIsAvatarDialogOpen}>
+                <DialogContent className="sm:max-w-xs rounded-[2rem] p-0 overflow-hidden border-0 shadow-2xl animate-in fade-in zoom-in duration-300">
+                    <div className="bg-gradient-to-b from-primary/5 to-transparent p-6">
+                        <DialogHeader className="mb-4">
+                            <DialogTitle className="text-center text-lg font-bold text-foreground">Profile Picture</DialogTitle>
+                        </DialogHeader>
+
+                        <div className="grid grid-cols-1 gap-3">
+                            <button
+                                className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-white/80 hover:bg-primary/10 border border-white/50 shadow-sm transition-all duration-200 active:scale-[0.98]"
+                                onClick={() => {
+                                    setIsViewingAvatar(true);
+                                    setIsAvatarDialogOpen(false);
+                                }}
+                            >
+                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                    <Eye className="h-5 w-5" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-bold text-sm text-foreground">View profile photo</p>
+                                    <p className="text-[10px] text-muted-foreground">See your current display picture</p>
+                                </div>
+                            </button>
+
+                            <label className="cursor-pointer">
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                />
+                                <div className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-white/80 hover:bg-primary/10 border border-white/50 shadow-sm transition-all duration-200 active:scale-[0.98]">
+                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                        <Pencil className="h-5 w-5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="font-bold text-sm text-foreground">Upload new photo</p>
+                                        <p className="text-[10px] text-muted-foreground">Choose from gallery or camera</p>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <Button
+                                variant="ghost"
+                                className="mt-2 text-muted-foreground font-semibold hover:bg-transparent"
+                                onClick={() => setIsAvatarDialogOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* View Avatar Dialog */}
+            <Dialog open={isViewingAvatar} onOpenChange={setIsViewingAvatar}>
+                <DialogContent className="max-w-sm w-[calc(100%-2rem)] max-h-[95vh] rounded-3xl p-0 overflow-hidden bg-black/95 border-0 shadow-2xl backdrop-blur-xl">
+                    <div className="relative aspect-square flex items-center justify-center p-6">
+                        <Avatar className="h-[85%] w-[85%] rounded-xl overflow-hidden">
+                            <AvatarImage src={avatarUrl || ""} className="object-contain w-full h-full" />
+                            <AvatarFallback className="text-5xl font-bold bg-gradient-to-br from-primary/20 to-secondary/20 text-white rounded-none flex items-center justify-center">
+                                {getInitials(form.watch("fullName") || "U")}
+                            </AvatarFallback>
+                        </Avatar>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-5 right-5 h-10 w-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full text-white shadow-lg transition-all duration-200 hover:scale-110"
+                            onClick={() => setIsViewingAvatar(false)}
+                            aria-label="Close viewer"
+                        >
+                            <X className="h-5 w-5" />
+                        </Button>
+
+                        <div className="absolute bottom-5 left-0 right-0 px-6">
+                            <div className="bg-white/20 backdrop-blur-md rounded-full py-2 px-4 inline-block">
+                                <p className="text-white font-medium text-sm truncate">
+                                    {form.watch("fullName") || "Profile Photo"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Avatar Dialog (Crop/Scale/Rotate) */}
+            <Dialog open={isEditingAvatar} onOpenChange={(open) => !open && !uploading && setIsEditingAvatar(false)}>
+                <DialogContent className="sm:max-w-md w-[calc(100%-2rem)] max-h-[95vh] rounded-3xl p-0 overflow-hidden border-0 shadow-2xl bg-white">
+                    <div className="p-6">
+                        <DialogHeader className="mb-6">
+                            <DialogTitle className="text-center text-xl font-bold text-foreground">Edit Your Photo</DialogTitle>
+                            <p className="text-center text-xs text-muted-foreground">Drag to position, zoom to fit, rotate as needed</p>
+                        </DialogHeader>
+
+                        <div className="flex flex-col items-center gap-5">
+                            {/* Editor Area */}
+                            <div className="relative group">
+                                <div className="relative h-60 w-60 rounded-full overflow-hidden border-4 border-primary/10 shadow-lg bg-muted/20 ring-2 ring-primary/10 transition-all duration-300">
+                                    {previewUrl && (
+                                        <AvatarEditor
+                                            ref={avatarEditorRef}
+                                            image={previewUrl}
+                                            width={240}
+                                            height={240}
+                                            border={0}
+                                            borderRadius={120}
+                                            color={[255, 255, 255, 0.6]}
+                                            scale={scale}
+                                            rotate={rotation}
+                                            position={position}
+                                            onPositionChange={setPosition}
+                                        />
+                                    )}
+
+                                    {/* Overlay Mesh/Mask */}
+                                    <div className="absolute inset-0 pointer-events-none ring-1 ring-white/50 border-4 border-white/80 rounded-full" />
+                                </div>
+
+                                <div className="absolute -bottom-3 right-0 h-8 w-8 bg-primary text-white flex items-center justify-center rounded-full shadow-lg ring-2 ring-white transition-transform group-hover:scale-110">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </div>
+                            </div>
+
+                            {/* Controls Section */}
+                            <div className="w-full space-y-5 px-3">
+                                {/* Scale Control */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-xs font-medium text-foreground">
+                                        <span className="flex items-center gap-1.5">
+                                            <ZoomIn className="h-3.5 w-3.5 text-primary" />
+                                            Zoom
+                                        </span>
+                                        <span className="font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-md text-xs">
+                                            {(scale).toFixed(1)}x
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5 mt-2">
+                                        <button
+                                            className="text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-primary/10"
+                                            onClick={() => setScale(prev => Math.max(1, prev - 0.1))}
+                                            aria-label="Zoom out"
+                                        >
+                                            <ZoomOut className="h-4 w-4" />
+                                        </button>
+                                        <Slider
+                                            value={[scale]}
+                                            min={1}
+                                            max={3}
+                                            step={0.1}
+                                            onValueChange={(val) => setScale(val[0])}
+                                            className="flex-1 h-1.5"
+                                        />
+                                        <button
+                                            className="text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-primary/10"
+                                            onClick={() => setScale(prev => Math.min(3, prev + 0.1))}
+                                            aria-label="Zoom in"
+                                        >
+                                            <ZoomIn className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Rotation Control */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-xs font-medium text-foreground">
+                                        <span className="flex items-center gap-1.5">
+                                            <RotateCw className="h-3.5 w-3.5 text-primary" />
+                                            Rotation
+                                        </span>
+                                        <span className="font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-md text-xs">
+                                            {rotation}°
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5 mt-2">
+                                        <button
+                                            className="text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-primary/10"
+                                            onClick={() => setRotation(prev => (prev - 45) % 360)}
+                                            aria-label="Rotate left"
+                                        >
+                                            <RotateCcw className="h-4 w-4" />
+                                        </button>
+                                        <Slider
+                                            value={[rotation]}
+                                            min={0}
+                                            max={360}
+                                            step={1}
+                                            onValueChange={(val) => setRotation(val[0])}
+                                            className="flex-1 h-1.5"
+                                        />
+                                        <button
+                                            className="text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-primary/10"
+                                            onClick={() => setRotation(prev => (prev + 45) % 360)}
+                                            aria-label="Rotate right"
+                                        >
+                                            <RotateCw className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 mt-2">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 rounded-xl h-11 font-medium text-muted-foreground border-muted-foreground/30 hover:bg-muted/50"
+                                        onClick={() => setIsEditingAvatar(false)}
+                                        disabled={uploading}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        className="flex-1 rounded-xl h-11 font-semibold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 transition-all duration-200"
+                                        onClick={() => handleUploadAvatar(avatarEditorRef)}
+                                        disabled={uploading}
+                                    >
+                                        {uploading ? (
+                                            <div className="flex items-center gap-2">
+                                                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                                <span>Saving...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <Upload className="h-4 w-4" />
+                                                <span>Save</span>
+                                            </div>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
