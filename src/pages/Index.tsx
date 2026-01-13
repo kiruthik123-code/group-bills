@@ -230,6 +230,15 @@ const Index = () => {
       return;
     }
 
+    if (name.length > 15) {
+      toast({
+        title: "Group name too long",
+        description: "Group name must be 15 characters or less.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const inviteCode = generateInviteCode();
       const inviteLink = `https://splitstuff.app/join/${inviteCode}`;
@@ -462,7 +471,7 @@ const Index = () => {
             </AlertDialogHeader>
             <div className="space-y-2 py-2 text-sm">
               <label className="text-xs font-medium text-muted-foreground" htmlFor="group-name">
-                Group name
+                Group name (max 15 characters)
               </label>
               <Input
                 id="group-name"
@@ -471,6 +480,7 @@ const Index = () => {
                 placeholder="Goa Trip, Roommates, Office lunch..."
                 className="h-9 rounded-2xl"
                 autoFocus
+                maxLength={15}
               />
             </div>
             <AlertDialogFooter>
