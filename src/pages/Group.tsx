@@ -647,7 +647,7 @@ const GroupPage = () => {
                 {selectedExpense.notes && (
                   <div>
                     <p className="font-medium mb-1">Description</p>
-                    <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                    <p className="whitespace-pre-wrap break-all text-muted-foreground max-h-48 overflow-y-auto pr-1">
                       {selectedExpense.notes}
                     </p>
                   </div>
