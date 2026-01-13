@@ -62,7 +62,11 @@ const expenseSchema = z.object({
   }),
   paidBy: z.string().min(1, "Please select who paid"),
   splitType: z.enum(["equal", "custom"], { message: "Please select a split type" }),
-  description: z.string().max(100, "Description must be 100 characters or less").optional(),
+  description: z
+    .string()
+    .trim()
+    .max(35, "Description must be 35 characters or less")
+    .optional(),
 });
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -847,13 +851,13 @@ const GroupPage = () => {
                   name="description"
                   render={({ field }) => {
                     const currentLength = field.value?.length ?? 0;
-                    const maxLength = 100;
+                    const maxLength = 35;
 
                     return (
                       <FormItem>
                         <FormLabel className="flex items-center justify-between">
                           <span>Description</span>
-                          <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                          <span className="text-xs font-normal text-muted-foreground">Optional · Max {maxLength} chars</span>
                         </FormLabel>
                         <FormControl>
                           <div className="space-y-1">
