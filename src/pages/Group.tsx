@@ -98,6 +98,7 @@ const GroupPage = () => {
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
 
   const form = useForm<z.infer<typeof expenseSchema>>({
@@ -619,6 +620,42 @@ const GroupPage = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Expense Details Dialog */}
+        <Dialog open={!!selectedExpense} onOpenChange={(open) => !open && setSelectedExpense(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{selectedExpense?.title}</DialogTitle>
+              <DialogDescription>
+                Full details for this expense.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedExpense && (
+              <div className="space-y-3 text-sm">
+                <p>
+                  <span className="font-medium">Paid by:</span>{" "}
+                  {getMemberName(selectedExpense.paid_by)}
+                </p>
+                <p>
+                  <span className="font-medium">Amount:</span>{" "}
+                  {currency.format(selectedExpense.amount)}
+                </p>
+                <p className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>{format(new Date(selectedExpense.created_at), "MMM d, yyyy")}</span>
+                </p>
+                {selectedExpense.notes && (
+                  <div>
+                    <p className="font-medium mb-1">Description</p>
+                    <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                      {selectedExpense.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
         
         {/* Remove Member Dialog */}
         <AlertDialog 
@@ -734,20 +771,22 @@ const GroupPage = () => {
                         </div>
                         {description && (
                           <div className="mt-2 text-xs text-muted-foreground">
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <p className="cursor-default break-words leading-snug max-h-10 overflow-hidden">
-                                    {previewText}
-                                  </p>
-                                </TooltipTrigger>
-                                {isLongDescription && (
-                                  <TooltipContent className="max-w-xs text-xs">
-                                    <p className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{description}</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
+                            <p className="break-words leading-snug">
+                              {description.length > 25 ? (
+                                <>
+                                  {description.slice(0, 25)}…{" "}
+                                  <button
+                                    type="button"
+                                    className="text-primary underline-offset-2 hover:underline"
+                                    onClick={() => setSelectedExpense(expense)}
+                                  >
+                                    See more
+                                  </button>
+                                </>
+                              ) : (
+                                description
+                              )}
+                            </p>
                           </div>
                         )}
                       </div>
