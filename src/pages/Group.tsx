@@ -737,13 +737,13 @@ const GroupPage = () => {
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <p className="cursor-default w-full max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                                  <p className="cursor-default break-words leading-snug max-h-10 overflow-hidden">
                                     {previewText}
                                   </p>
                                 </TooltipTrigger>
                                 {isLongDescription && (
                                   <TooltipContent className="max-w-xs text-xs">
-                                    <p className="whitespace-pre-wrap break-words">{description}</p>
+                                    <p className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{description}</p>
                                   </TooltipContent>
                                 )}
                               </Tooltip>
