@@ -64,7 +64,11 @@ const expenseSchema = z.object({
   }),
   paidBy: z.string().min(1, "Please select who paid"),
   splitType: z.enum(["equal", "custom"], { message: "Please select a split type" }),
-  description: z.string().max(30, "Description must be 30 characters or less").optional(),
+  description: z
+    .string()
+    .trim()
+    .max(35, "Description must be 35 characters or less")
+    .optional(),
 });
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -98,6 +102,7 @@ const GroupPage = () => {
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   const form = useForm<z.infer<typeof expenseSchema>>({
     resolver: zodResolver(expenseSchema),
@@ -620,6 +625,42 @@ const GroupPage = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Expense Details Dialog */}
+        <Dialog open={!!selectedExpense} onOpenChange={(open) => !open && setSelectedExpense(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{selectedExpense?.title}</DialogTitle>
+              <DialogDescription>
+                Full details for this expense.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedExpense && (
+              <div className="space-y-3 text-sm">
+                <p>
+                  <span className="font-medium">Paid by:</span>{" "}
+                  {getMemberName(selectedExpense.paid_by)}
+                </p>
+                <p>
+                  <span className="font-medium">Amount:</span>{" "}
+                  {currency.format(selectedExpense.amount)}
+                </p>
+                <p className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>{format(new Date(selectedExpense.created_at), "MMM d, yyyy")}</span>
+                </p>
+                {selectedExpense.notes && (
+                  <div>
+                    <p className="font-medium mb-1">Description</p>
+                    <p className="whitespace-pre-wrap break-all text-muted-foreground max-h-48 overflow-y-auto pr-1">
+                      {selectedExpense.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+        
         {/* Remove Member Dialog */}
         <AlertDialog
           open={!!memberToRemove}
@@ -741,20 +782,22 @@ const GroupPage = () => {
                         </div>
                         {description && (
                           <div className="mt-2 text-xs text-muted-foreground">
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <p className="cursor-default w-full max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
-                                    {previewText}
-                                  </p>
-                                </TooltipTrigger>
-                                {isLongDescription && (
-                                  <TooltipContent className="max-w-xs text-xs">
-                                    <p className="whitespace-pre-wrap break-words">{description}</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
+                            <p className="break-words leading-snug">
+                              {description.length > 25 ? (
+                                <>
+                                  {description.slice(0, 25)}…{" "}
+                                  <button
+                                    type="button"
+                                    className="text-primary underline-offset-2 hover:underline"
+                                    onClick={() => setSelectedExpense(expense)}
+                                  >
+                                    See more
+                                  </button>
+                                </>
+                              ) : (
+                                description
+                              )}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -858,13 +901,13 @@ const GroupPage = () => {
                   name="description"
                   render={({ field }) => {
                     const currentLength = field.value?.length ?? 0;
-                    const maxLength = 30;
+                    const maxLength = 35;
 
                     return (
                       <FormItem>
                         <FormLabel className="flex items-center justify-between">
                           <span>Description</span>
-                          <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                          <span className="text-xs font-normal text-muted-foreground">Optional · Max {maxLength} chars</span>
                         </FormLabel>
                         <FormControl>
                           <div className="space-y-1">
