@@ -517,7 +517,7 @@ const Index = () => {
             </AlertDialogHeader>
             <div className="space-y-2 py-2 text-sm">
               <label className="text-xs font-medium text-muted-foreground" htmlFor="group-name">
-                Group name
+                Group name (max 15 characters)
               </label>
               <Input
                 id="group-name"
@@ -527,6 +527,7 @@ const Index = () => {
                 className="h-9 rounded-2xl"
                 maxLength={15}
                 autoFocus
+                maxLength={15}
               />
               <p className="text-[10px] text-muted-foreground text-right">
                 {newGroupName.length}/15 characters

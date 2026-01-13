@@ -101,6 +101,7 @@ const GroupPage = () => {
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
