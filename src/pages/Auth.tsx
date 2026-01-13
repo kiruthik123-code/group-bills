@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const authSchema = z.object({
   mode: z.enum(["login", "signup"]),

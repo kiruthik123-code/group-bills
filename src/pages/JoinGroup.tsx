@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const JoinGroupPage = () => {
   const { code: codeFromUrl } = useParams<{ code?: string }>();

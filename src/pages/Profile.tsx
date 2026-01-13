@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +43,7 @@ const Profile = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const queryClient = useQueryClient();
     // Type for profile data
     type ProfileFormValues = z.infer<typeof profileSchema>;
 
@@ -119,6 +121,9 @@ const Profile = () => {
                 });
 
             if (error) throw error;
+            
+            // Invalidate the profile query to update profile across the app
+            await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
 
             toast({
                 title: "Profile updated",
@@ -212,16 +217,24 @@ const Profile = () => {
                 .from('avatars')
                 .getPublicUrl(filePath);
 
+            // Add a timestamp to bypass cache
+            const timestamp = Date.now();
+            const cachedPublicUrl = `${publicUrl}?t=${timestamp}`;
+
             const { error: updateError } = await supabase
                 .from('profiles')
-                .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+                .update({ avatar_url: cachedPublicUrl, updated_at: new Date().toISOString() })
                 .eq('id', user.id);
 
             if (updateError) throw updateError;
 
-            setAvatarUrl(publicUrl);
+            setAvatarUrl(cachedPublicUrl); // Use the cached URL with timestamp
             setIsEditingAvatar(false);
             setIsAvatarDialogOpen(false);
+            
+            // Invalidate the profile query to update avatar across the app
+            await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+            
             toast({
                 title: "Avatar updated",
                 description: "Your profile picture has been updated.",

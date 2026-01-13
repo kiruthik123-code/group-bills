@@ -6,6 +6,7 @@ import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 

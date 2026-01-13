@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Plus, Users } from "lucide-react";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -166,7 +167,7 @@ const Index = () => {
     enabled: !!user,
   });
 
-  const { data: profile } = useQuery({
+  const { data: profile, refetch: refetchProfile } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -319,7 +320,7 @@ const Index = () => {
             onClick={() => navigate("/profile")}
             className="transition-transform hover:scale-110 active:scale-95"
           >
-            <Avatar className="h-10 w-10 border-2 border-white shadow-md">
+            <Avatar className="h-10 w-10 border-2 border-white shadow-[0_2px_6px_rgba(0,0,0,0.18)] ring-1 ring-white/50 transition-all duration-200 hover:ring-primary/30">
               <AvatarImage src={profile?.avatar_url || ""} className="object-cover" />
               <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold uppercase">
                 {getInitials(profile?.full_name || user?.email || "U")}
@@ -329,7 +330,7 @@ const Index = () => {
         </header>
 
         <section className="px-4">
-          <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-lg">
+          <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-[0_4px_12px_rgba(0,0,0,0.15)] before:absolute before:inset-0 before:rounded-[1.75rem] before:bg-white/15 before:backdrop-blur-0 before:pointer-events-none relative">
             <div className="p-5">
               <p className="text-xs font-medium text-muted-foreground">Total balance</p>
               <p className="mt-2 text-3xl font-extrabold"
@@ -348,21 +349,23 @@ const Index = () => {
         <section className="mt-6 flex-1 px-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Button
-              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.02]"
+              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.03] shadow-[0_3px_6px_rgba(0,0,0,0.25)] hover:shadow-[0_6px_12px_rgba(0,0,0,0.3)] hover:shadow-purple-200/50"
               onClick={() => setIsCreateDialogOpen(true)}
             >
+              <Plus className="mr-2 h-4 w-4" />
               Create Group
             </Button>
             <Button
               variant="outline"
-              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.02]"
+              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.03] shadow-[0_3px_6px_rgba(0,0,0,0.25)] hover:shadow-[0_6px_12px_rgba(0,0,0,0.3)] hover:shadow-purple-200/50"
               onClick={() => navigate("/join")}
             >
+              <Users className="mr-2 h-4 w-4" />
               Join Group
             </Button>
           </div>
 
-          <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">People to pay</h2>
           </div>
           {payables && payables.length > 0 ? (
@@ -397,7 +400,7 @@ const Index = () => {
               ))}
             </div>
           ) : (
-            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm">
+            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm transition-all duration-200 hover:scale-[1.01]">
               You don't need to pay anyone right now. 🎉
             </Card>
           )}
@@ -544,22 +547,25 @@ const Index = () => {
 
 
 
-        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-6px_16px_rgba(0,0,0,0.06)] backdrop-blur">
+        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-3px_8px_rgba(0,0,0,0.12)] backdrop-blur">
           <div className="mx-auto flex max-w-md items-center justify-around px-8 py-3 text-[11px] font-medium">
-            <button className="flex flex-col items-center gap-0.5 text-primary transition-all duration-200 hover:scale-105">
+            <button className="flex flex-col items-center gap-0.5 text-primary transition-all duration-200 hover:scale-105 relative">
               <span>Home</span>
+              <div className="absolute -bottom-1 h-0.5 w-4 bg-primary rounded-full animate-pulse"></div>
             </button>
             <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
+              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105 relative"
               onClick={() => navigate("/groups")}
             >
               <span>Groups</span>
+              <div className="absolute -bottom-1 h-0.5 w-0 bg-primary/30 rounded-full transition-all duration-200"></div>
             </button>
             <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
+              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105 relative"
               onClick={() => navigate("/profile")}
             >
               <span>Profile</span>
+              <div className="absolute -bottom-1 h-0.5 w-0 bg-primary/30 rounded-full transition-all duration-200"></div>
             </button>
           </div>
         </nav>

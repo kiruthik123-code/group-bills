@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const UpiPayment = () => {
   const [searchParams] = useSearchParams();
@@ -73,11 +74,7 @@ const UpiPayment = () => {
 
     const url = `upi://pay?${params.toString()}`;
 
-    console.log("Launching UPI payment", {
-      url,
-      receiverName,
-      receiverUpi,
-    });
+
 
     // Try to open UPI payment using a temporary link element
     try {
