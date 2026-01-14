@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,11 +10,19 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
+ 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
-
-type IndividualExpense = Omit<Database['public']['Tables']['individual_expenses']['Row'], 'created_at' | 'updated_at'>;
-
+ 
+type IndividualExpense = {
+  id: string;
+  user_id: string;
+  title: string;
+  amount: number;
+  date: string;
+  category: string;
+  description: string;
+};
+ 
 const IndividualExpensesPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -30,14 +37,14 @@ const IndividualExpensesPage = () => {
     category: "Other",
     description: ""
   });
-
+ 
   // Fetch individual expenses
   const { data: expenses, isLoading } = useQuery({
     queryKey: ["individual-expenses", user?.id],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("individual_expenses")
         .select("*")
         .eq("user_id", user.id)
@@ -54,7 +61,7 @@ const IndividualExpensesPage = () => {
     mutationFn: async (expenseData: Omit<IndividualExpense, 'id'>) => {
       if (!user) throw new Error("User not authenticated");
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("individual_expenses")
         .insert([{ ...expenseData, user_id: user.id }])
         .select()
@@ -90,7 +97,7 @@ const IndividualExpensesPage = () => {
   // Mutation to delete expense
   const deleteExpenseMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("individual_expenses")
         .delete()
         .eq("id", id);
@@ -130,7 +137,7 @@ const IndividualExpensesPage = () => {
       date: newExpense.date,
       category: newExpense.category,
       description: newExpense.description,
-      user_id: user.id!
+      user_id: user.id!,
     });
   };
 

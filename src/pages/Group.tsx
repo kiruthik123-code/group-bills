@@ -76,20 +76,13 @@ const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "
 type GroupMember = {
   id: string;
   name: string;
-  avatar_url: string | null;
 };
-
 type Expense = Database['public']['Tables']['expenses']['Row'] & {
-  created_by_user_id?: string; // This field may not exist in remote DB yet
   expense_splits: {
     user_id: string;
     share_amount: number;
   }[];
 };
-type Profile = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name' | 'avatar_url'>;
-
-
-const GroupPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -151,22 +144,19 @@ const GroupPage = () => {
 
       // 2. Get profiles
       const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .in("id", userIds);
-
-      if (profilesError) throw profilesError;
-
-      const profileMap = new Map(profilesData?.map((p: { id: string; full_name: string; avatar_url: string | null }) => [p.id, p]));
-
-      return userIds.map((id) => {
-        const profile = profilesData?.find((p) => p.id === id);
-        return {
-          id,
-          name: profile?.full_name || "Unknown Member",
-          avatar_url: profile?.avatar_url || null,
-        };
-      });
+         .from("profiles")
+         .select("id, full_name")
+         .in("id", userIds);
+ 
+       if (profilesError) throw profilesError;
+ 
+       return userIds.map((id) => {
+         const profile = profilesData?.find((p) => p.id === id);
+         return {
+           id,
+           name: profile?.full_name || "Unknown Member",
+         };
+       });
     },
     enabled: !!groupId,
   });
