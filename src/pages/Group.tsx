@@ -619,7 +619,7 @@ const GroupPage = () => {
 
         {/* Expense Details Dialog */}
         <Dialog open={!!selectedExpense} onOpenChange={(open) => !open && setSelectedExpense(null)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md w-[95vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl animate-enter">
             <DialogHeader>
               <DialogTitle>{selectedExpense?.title}</DialogTitle>
               <DialogDescription>
@@ -642,8 +642,8 @@ const GroupPage = () => {
                 </p>
                 {selectedExpense.notes && (
                   <div>
-                    <p className="font-medium mb-1">Description</p>
-                    <p className="whitespace-pre-wrap break-all text-muted-foreground max-h-48 overflow-y-auto pr-1">
+                    <p className="mb-1 font-medium">Description</p>
+                    <p className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all pr-1 text-muted-foreground">
                       {selectedExpense.notes}
                     </p>
                   </div>
@@ -859,7 +859,7 @@ const GroupPage = () => {
 
         {/* Add Expense Dialog */}
         <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md w-[95vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl animate-enter">
             <DialogHeader>
               <DialogTitle>Add Expense</DialogTitle>
               <DialogDescription>
