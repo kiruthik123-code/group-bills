@@ -171,11 +171,11 @@ const Index = () => {
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
+       const { data, error } = await supabase
+         .from("profiles")
+         .select("full_name")
+         .eq("id", user.id)
+         .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -320,12 +320,12 @@ const Index = () => {
             onClick={() => navigate("/profile")}
             className="transition-transform hover:scale-110 active:scale-95"
           >
-            <Avatar className="h-10 w-10 border-2 border-white shadow-[0_2px_6px_rgba(0,0,0,0.18)] ring-1 ring-white/50 transition-all duration-200 hover:ring-primary/30">
-              <AvatarImage src={profile?.avatar_url || ""} className="object-cover" />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold uppercase">
-                {getInitials(profile?.full_name || user?.email || "U")}
-              </AvatarFallback>
-            </Avatar>
+             <Avatar className="h-10 w-10 border-2 border-white shadow-[0_2px_6px_rgba(0,0,0,0.18)] ring-1 ring-white/50 transition-all duration-200 hover:ring-primary/30">
+               <AvatarImage src="" className="object-cover" />
+               <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold uppercase">
+                 {getInitials(profile?.full_name || user?.email || "U")}
+               </AvatarFallback>
+             </Avatar>
           </button>
         </header>
 
@@ -519,16 +519,15 @@ const Index = () => {
               <label className="text-xs font-medium text-muted-foreground" htmlFor="group-name">
                 Group name (max 15 characters)
               </label>
-              <Input
-                id="group-name"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="Goa Trip, Roommates, Office lunch..."
-                className="h-9 rounded-2xl"
-                maxLength={15}
-                autoFocus
-                maxLength={15}
-              />
+               <Input
+                 id="group-name"
+                 value={newGroupName}
+                 onChange={(e) => setNewGroupName(e.target.value)}
+                 placeholder="Goa Trip, Roommates, Office lunch..."
+                 className="h-9 rounded-2xl"
+                 maxLength={15}
+                 autoFocus
+               />
               <p className="text-[10px] text-muted-foreground text-right">
                 {newGroupName.length}/15 characters
               </p>
