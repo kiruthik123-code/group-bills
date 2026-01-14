@@ -76,18 +76,13 @@ const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "
 type GroupMember = {
   id: string;
   name: string;
-  avatar_url: string | null;
 };
-
 type Expense = Database['public']['Tables']['expenses']['Row'] & {
-  created_by_user_id?: string; // This field may not exist in remote DB yet
   expense_splits: {
     user_id: string;
     share_amount: number;
   }[];
 };
-type Profile = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name' | 'avatar_url'>;
-
 
 const GroupPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
@@ -151,22 +146,19 @@ const GroupPage = () => {
 
       // 2. Get profiles
       const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .in("id", userIds);
-
-      if (profilesError) throw profilesError;
-
-      const profileMap = new Map(profilesData?.map((p: { id: string; full_name: string; avatar_url: string | null }) => [p.id, p]));
-
-      return userIds.map((id) => {
-        const profile = profilesData?.find((p) => p.id === id);
-        return {
-          id,
-          name: profile?.full_name || "Unknown Member",
-          avatar_url: profile?.avatar_url || null,
-        };
-      });
+         .from("profiles")
+         .select("id, full_name")
+         .in("id", userIds);
+ 
+       if (profilesError) throw profilesError;
+ 
+       return userIds.map((id) => {
+         const profile = profilesData?.find((p) => p.id === id);
+         return {
+           id,
+           name: profile?.full_name || "Unknown Member",
+         };
+       });
     },
     enabled: !!groupId,
   });
@@ -627,7 +619,7 @@ const GroupPage = () => {
 
         {/* Expense Details Dialog */}
         <Dialog open={!!selectedExpense} onOpenChange={(open) => !open && setSelectedExpense(null)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md w-[95vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl animate-enter">
             <DialogHeader>
               <DialogTitle>{selectedExpense?.title}</DialogTitle>
               <DialogDescription>
@@ -650,8 +642,8 @@ const GroupPage = () => {
                 </p>
                 {selectedExpense.notes && (
                   <div>
-                    <p className="font-medium mb-1">Description</p>
-                    <p className="whitespace-pre-wrap break-all text-muted-foreground max-h-48 overflow-y-auto pr-1">
+                    <p className="mb-1 font-medium">Description</p>
+                    <p className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all pr-1 text-muted-foreground">
                       {selectedExpense.notes}
                     </p>
                   </div>
@@ -701,13 +693,8 @@ const GroupPage = () => {
                     className="flex flex-col items-center gap-1.5 group relative animate-in fade-in zoom-in duration-300"
                     style={{ width: '60px' }}
                   >
-                    <div className="relative">
-                      <Avatar className={`h-12 w-12 border-2 transition-all duration-300 ${member.id === group?.created_by ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-background'} group-hover:scale-110`}>
-                        <AvatarImage src={member.avatar_url || ""} className="object-cover" />
-                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
-                          {member.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                    <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-300 bg-primary/10 text-sm font-bold text-primary uppercase">
+                      {member.name.charAt(0).toUpperCase()}
 
                       {/* Creator badge */}
                       {member.id === group?.created_by && (
@@ -872,7 +859,7 @@ const GroupPage = () => {
 
         {/* Add Expense Dialog */}
         <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md w-[95vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl animate-enter">
             <DialogHeader>
               <DialogTitle>Add Expense</DialogTitle>
               <DialogDescription>

@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -180,25 +181,7 @@ const GroupsListPage = () => {
           )}
         </section>
 
-        <nav className="fixed bottom-0 left-0 right-0 border-t bg-card/95 shadow-[0_-6px_16px_rgba(0,0,0,0.06)] backdrop-blur">
-          <div className="mx-auto flex max-w-md items-center justify-around px-8 py-3 text-[11px] font-medium">
-            <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
-              onClick={() => navigate("/")}
-            >
-              <span>Home</span>
-            </button>
-            <button className="flex flex-col items-center gap-0.5 text-primary transition-all duration-200 hover:scale-105">
-              <span>Groups</span>
-            </button>
-            <button
-              className="flex flex-col items-center gap-0.5 text-muted-foreground transition-all duration-200 hover:scale-105"
-              onClick={() => navigate("/profile")}
-            >
-              <span>Profile</span>
-            </button>
-          </div>
-        </nav>
+        <MobileBottomNav />
       </main>
     </div>
   );

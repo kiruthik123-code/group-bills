@@ -74,20 +74,19 @@ const Profile = () => {
             if (!user) return;
 
             try {
-                const { data, error } = await supabase
-                    .from("profiles")
-                    .select("full_name, upi_id, avatar_url")
-                    .eq("id", user.id)
-                    .maybeSingle();
-
-                if (error) throw error;
-
-                // Normalize values and update form
-                const fullName = data?.full_name?.trim() ?? "";
-                const upiId = data?.upi_id?.trim() ?? "";
-                setAvatarUrl(data?.avatar_url ?? null);
-
-                form.reset({
+                 const { data, error } = await supabase
+                     .from("profiles")
+                     .select("full_name, upi_id")
+                     .eq("id", user.id)
+                     .maybeSingle();
+ 
+                 if (error) throw error;
+ 
+                 // Normalize values and update form
+                 const fullName = data?.full_name?.trim() ?? "";
+                 const upiId = data?.upi_id?.trim() ?? "";
+ 
+                 form.reset({
                     fullName,
                     upiId,
                 });

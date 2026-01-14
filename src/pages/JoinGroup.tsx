@@ -8,10 +8,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const JoinGroupPage = () => {
   const { code: codeFromUrl } = useParams<{ code?: string }>();
   const [code, setCode] = useState("");
+  const [open, setOpen] = useState(true);
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
@@ -77,24 +85,22 @@ const JoinGroupPage = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/70 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="transition-all duration-200 hover:scale-105">
-              {"<-"} Back
-            </Button>
-            <h1 className="mt-2 text-lg font-semibold">Join a group</h1>
-            <p className="text-xs text-muted-foreground">
-              Enter an invite code or open a shared link to join an existing group.
-            </p>
-          </div>
-        </div>
-      </header>
+  const handleClose = () => {
+    setOpen(false);
+    navigate(-1);
+  };
 
-      <main className="mx-auto max-w-md space-y-4 px-4 py-8">
-        <Card className="p-4 space-y-4">
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Join a group</DialogTitle>
+          <DialogDescription>
+            Enter an invite code or open a shared link to join an existing group.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Card className="mt-2 space-y-4 p-4 border-none shadow-none">
           <label className="text-sm font-medium text-muted-foreground" htmlFor="invite-code">
             Invite code
           </label>
@@ -104,7 +110,11 @@ const JoinGroupPage = () => {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
           />
-          <Button className="w-full transition-all duration-200 hover:scale-105" disabled={joinGroup.isPending} onClick={() => joinGroup.mutate()}>
+          <Button
+            className="w-full transition-all duration-200 hover:scale-105"
+            disabled={joinGroup.isPending}
+            onClick={() => joinGroup.mutate()}
+         >
             Join group
           </Button>
           {codeFromUrl && (
@@ -113,8 +123,8 @@ const JoinGroupPage = () => {
             </p>
           )}
         </Card>
-      </main>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
