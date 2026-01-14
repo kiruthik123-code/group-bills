@@ -83,6 +83,8 @@ type Expense = Database['public']['Tables']['expenses']['Row'] & {
     share_amount: number;
   }[];
 };
+
+const GroupPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -691,13 +693,8 @@ type Expense = Database['public']['Tables']['expenses']['Row'] & {
                     className="flex flex-col items-center gap-1.5 group relative animate-in fade-in zoom-in duration-300"
                     style={{ width: '60px' }}
                   >
-                    <div className="relative">
-                      <Avatar className={`h-12 w-12 border-2 transition-all duration-300 ${member.id === group?.created_by ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-background'} group-hover:scale-110`}>
-                        <AvatarImage src={member.avatar_url || ""} className="object-cover" />
-                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
-                          {member.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                    <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-300 bg-primary/10 text-sm font-bold text-primary uppercase">
+                      {member.name.charAt(0).toUpperCase()}
 
                       {/* Creator badge */}
                       {member.id === group?.created_by && (
