@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -57,7 +57,7 @@ const Profile = () => {
     const [rotation, setRotation] = useState(0);
     const [position, setPosition] = useState({ x: 0.5, y: 0.5 });
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const avatarEditorRef = useRef(null);
+    const avatarEditorRef = useRef<any>(null);
 
     // Define form
     const form = useForm<ProfileFormValues>({
@@ -167,13 +167,13 @@ const Profile = () => {
         }
     };
 
-    const handleUploadAvatar = async (editorRef: React.RefObject<any>) => {
-        if (!user || !editorRef.current) return;
+    const handleUploadAvatar = async () => {
+        if (!user || !avatarEditorRef.current) return;
 
         setUploading(true);
         try {
             // Get the cropped image from the editor
-            const canvas = editorRef.current.getImageScaledToCanvas();
+            const canvas = avatarEditorRef.current.getImageScaledToCanvas();
             const base64Image = canvas.toDataURL();
             
             // Convert base64 to blob
@@ -192,14 +192,39 @@ const Profile = () => {
 
             // Delete old avatar if it exists
             if (avatarUrl) {
-                const oldFilePath = avatarUrl.split('/').pop();
-                if (oldFilePath) {
-                    try {
-                        await supabase.storage
+                // Extract file path from the avatar URL
+                try {
+                    const url = new URL(avatarUrl);
+                    const pathname = url.pathname;
+                    // Extract filename from the pathname
+                    const pathParts = pathname.split('/');
+                    const filename = pathParts[pathParts.length - 1];
+                    
+                    if (filename) {
+                        const { error: deleteError } = await supabase.storage
                             .from('avatars')
-                            .remove([`${user.id}/${oldFilePath}`]);
-                    } catch (deleteError) {
-                        console.warn('Failed to delete old avatar:', deleteError);
+                            .remove([`${user.id}/${filename}`]);
+                            
+                        if (deleteError) {
+                            console.warn('Failed to delete old avatar:', deleteError);
+                        }
+                    }
+                } catch (urlError) {
+                    console.warn('Failed to parse avatar URL for deletion:', urlError);
+                    // Fallback to the original method
+                    try {
+                        const oldFilePath = avatarUrl.split('/').pop();
+                        if (oldFilePath) {
+                            const { error: deleteError } = await supabase.storage
+                                .from('avatars')
+                                .remove([`${user.id}/${oldFilePath}`]);
+                                
+                            if (deleteError) {
+                                console.warn('Failed to delete old avatar with fallback method:', deleteError);
+                            }
+                        }
+                    } catch (fallbackError) {
+                        console.warn('Fallback deletion also failed:', fallbackError);
                     }
                 }
             }
@@ -234,6 +259,12 @@ const Profile = () => {
             
             // Invalidate the profile query to update avatar across the app
             await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+            await queryClient.invalidateQueries({ queryKey: ["profile"] });
+            
+            // Also invalidate any group member queries that might display this user's avatar
+            await queryClient.invalidateQueries({ queryKey: ["group_members"] });
+            await queryClient.invalidateQueries({ queryKey: ["balances"] });
+            await queryClient.invalidateQueries({ queryKey: ["payables"] });
             
             toast({
                 title: "Avatar updated",
@@ -604,7 +635,7 @@ const Profile = () => {
                                     </Button>
                                     <Button
                                         className="flex-1 rounded-xl h-11 font-semibold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 transition-all duration-200"
-                                        onClick={() => handleUploadAvatar(avatarEditorRef)}
+                                        onClick={handleUploadAvatar}
                                         disabled={uploading}
                                     >
                                         {uploading ? (
