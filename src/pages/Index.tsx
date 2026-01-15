@@ -260,7 +260,8 @@ const Index = () => {
 
     try {
       const inviteCode = generateInviteCode();
-      const inviteLink = `https://splitstuff.app/join/${inviteCode}`;
+      const origin = window.location.origin;
+      const inviteLink = `${origin}/join/${inviteCode}`;
 
       const { data, error } = await supabase
         .from("groups")
