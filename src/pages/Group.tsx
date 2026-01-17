@@ -58,6 +58,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const expenseSchema = z.object({
+  categoryIcon: z.string().min(1, "Please select a category"),
   title: z.string().min(1, "Title is required"),
   amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "Amount must be greater than 0",
@@ -71,6 +72,7 @@ const expenseSchema = z.object({
     .optional(),
 });
 
+
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
 type GroupMember = {
@@ -80,6 +82,7 @@ type GroupMember = {
 };
 
 type Expense = Database['public']['Tables']['expenses']['Row'] & {
+  category_icon?: string | null; // Added via migration; may not be present in older typegen
   created_by_user_id?: string; // This field may not exist in remote DB yet
   expense_splits: {
     user_id: string;
@@ -107,6 +110,7 @@ const GroupPage = () => {
   const form = useForm<z.infer<typeof expenseSchema>>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
+      categoryIcon: "🧾",
       title: "",
       amount: "",
       paidBy: user?.id || "",
@@ -221,6 +225,7 @@ const GroupPage = () => {
           amount: amount,
           paid_by: values.paidBy,
           notes: values.description?.trim() || null,
+          category_icon: values.categoryIcon,
         })
         .select("id")
         .single() as { data: { id: string } | null; error: any };
@@ -768,8 +773,10 @@ const GroupPage = () => {
                 <Card key={expense.id} className="p-4 rounded-2xl border-0 shadow-sm bg-white/80 backdrop-blur transition-all hover:scale-[1.01]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Receipt className="h-5 w-5" />
+                      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                        <span className="text-xl leading-none" aria-hidden>
+                          {(expense as any).category_icon || "🧾"}
+                        </span>
                       </div>
                       <div>
                         <h3 className="font-semibold text-foreground">{expense.title}</h3>
@@ -882,6 +889,38 @@ const GroupPage = () => {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="categoryIcon"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="🍽️">🍽️ Food</SelectItem>
+                          <SelectItem value="🛒">🛒 Groceries</SelectItem>
+                          <SelectItem value="🚕">🚕 Travel</SelectItem>
+                          <SelectItem value="🏠">🏠 Rent</SelectItem>
+                          <SelectItem value="💡">💡 Electricity</SelectItem>
+                          <SelectItem value="📶">📶 Internet</SelectItem>
+                          <SelectItem value="🎬">🎬 Entertainment</SelectItem>
+                          <SelectItem value="🛍️">🛍️ Shopping</SelectItem>
+                          <SelectItem value="🏥">🏥 Medical</SelectItem>
+                          <SelectItem value="⛽">⛽ Fuel</SelectItem>
+                          <SelectItem value="🎉">🎉 Party</SelectItem>
+                          <SelectItem value="🧾">🧾 Bills</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="title"

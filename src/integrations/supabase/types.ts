@@ -184,6 +184,7 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          category_icon: string
           created_at: string
           expense_date: string
           group_id: string
@@ -194,6 +195,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          category_icon?: string
           created_at?: string
           expense_date?: string
           group_id: string
@@ -204,6 +206,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category_icon?: string
           created_at?: string
           expense_date?: string
           group_id?: string
