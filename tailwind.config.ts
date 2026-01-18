@@ -61,6 +61,10 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        charcoal: "#1C1C1E",
+        "deep-black": "#050505",
+        brand: "#FF4D2D",
+        "floral-white": "#FAF8EE",
       },
       borderRadius: {
         lg: "1.5rem",
@@ -68,7 +72,11 @@ export default {
         sm: "0.75rem",
       },
       fontFamily: {
-        sans: ["Poppins", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "sans-serif"],
+        display: ["Plus Jakarta Sans", "sans-serif"],
+        inter: ["Inter", "sans-serif"],
+        outfit: ["Outfit", "sans-serif"],
+        mono: ["Space Grotesk", "monospace"],
       },
       keyframes: {
         "accordion-down": {

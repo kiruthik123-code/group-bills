@@ -171,11 +171,11 @@ const Index = () => {
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-       const { data, error } = await supabase
-         .from("profiles")
-         .select("full_name")
-         .eq("id", user.id)
-         .maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -308,248 +308,246 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
-      <main className="mx-auto flex max-w-md flex-col pb-20">
-        <header className="px-4 pt-10 pb-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Welcome back,</p>
-            <h1 className="text-xl font-bold text-foreground">
-              {profile?.full_name?.split(' ')[0] || "Friend"}! 👋
-            </h1>
-          </div>
+    <div className="relative w-full max-w-md min-h-screen bg-deep-black overflow-hidden flex flex-col mx-auto font-sans text-white selection:bg-brand/30">
+      <div className="absolute top-0 left-0 right-0 h-[500px] z-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top left, rgba(255, 77, 45, 0.15) 0%, transparent 70%)' }}></div>
+
+      {/* Header */}
+      <header className="sticky top-0 z-40 px-6 py-6 flex items-center justify-between">
+        <div className="w-10 h-10 rounded-full bg-charcoal border border-white/10 flex items-center justify-center overflow-hidden">
+          {/* Using Initials Avatar */}
+          <div className="font-bold text-brand text-sm">{getInitials(profile?.full_name || "User")}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold tracking-tight">SplitStuff</span>
+        </div>
+        <div className="w-10"></div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 px-6 pb-32">
+        {/* Greeting */}
+        <div className="mb-6 animate-in slide-in-from-bottom-2 fade-in duration-500">
+          <h1 className="text-3xl font-bold">Hello, <span className="text-brand">{profile?.full_name?.split(' ')[0] || "Friend"}</span></h1>
+          <p className="text-white/40 text-sm mt-1">Welcome back!</p>
+        </div>
+
+        {/* Balance Card */}
+        {(() => {
+          const net = (balances?.totalOwedToYou || 0) - (balances?.totalOwed || 0);
+          const isNetPositive = net > 0.01;
+          const isNetNegative = net < -0.01;
+          const cardBgColor = isNetPositive ? "bg-emerald-500" : isNetNegative ? "bg-rose-500" : "bg-brand";
+          const cardShadowColor = isNetPositive ? "shadow-emerald-500/20" : isNetNegative ? "shadow-rose-500/20" : "shadow-brand/20";
+
+          return (
+            <div className={`w-full h-auto rounded-[32px] p-6 flex flex-col justify-between relative overflow-hidden mb-8 group transition-all hover:scale-[1.02] shadow-2xl ${cardShadowColor} animate-in zoom-in-95 duration-500 delay-100`}>
+              <div className={`absolute inset-0 ${cardBgColor} opacity-100`}></div>
+              <div className="relative z-10 mb-6">
+                <p className="text-white/80 font-medium text-sm">Total Net Balance</p>
+                <h2 className="text-4xl font-bold mt-1 text-white">
+                  {currency.format(Math.abs(net))}
+                </h2>
+                <p className="text-white/70 text-xs mt-1 font-medium bg-white/20 inline-block px-2 py-0.5 rounded-lg backdrop-blur-md">
+                  {netSummary}
+                </p>
+              </div>
+              <div className="relative z-10 flex gap-4">
+                <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="material-symbols-outlined text-[16px] text-white/70">arrow_outward</span>
+                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Owe</p>
+                  </div>
+                  <p className="text-lg font-bold text-white">{currency.format(balances?.totalOwed || 0)}</p>
+                </div>
+                <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="material-symbols-outlined text-[16px] text-white/70">call_received</span>
+                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Get</p>
+                  </div>
+                  <p className="text-lg font-bold text-white">{currency.format(balances?.totalOwedToYou || 0)}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Quick Actions */}
+        <div className="flex gap-3 mb-8 overflow-x-auto no-scrollbar pb-2">
           <button
-            onClick={() => navigate("/profile")}
-            className="transition-transform hover:scale-110 active:scale-95"
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="flex-1 whitespace-nowrap bg-brand text-white rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-brand/90 transition-all active:scale-95 font-bold text-sm shadow-lg shadow-brand/20"
           >
-             <Avatar className="h-10 w-10 border-2 border-white shadow-[0_2px_6px_rgba(0,0,0,0.18)] ring-1 ring-white/50 transition-all duration-200 hover:ring-primary/30">
-               <AvatarImage src="" className="object-cover" />
-               <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold uppercase">
-                 {getInitials(profile?.full_name || user?.email || "U")}
-               </AvatarFallback>
-             </Avatar>
+            <span className="material-symbols-outlined text-xl">add</span>
+            Create Group
           </button>
-        </header>
+          <button
+            onClick={() => navigate('/join')}
+            className="flex-1 whitespace-nowrap bg-white text-charcoal rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-white/90 transition-all active:scale-95 font-bold text-sm shadow-lg"
+          >
+            <span className="material-symbols-outlined text-xl">group_add</span>
+            Join Group
+          </button>
+        </div>
 
-        <section className="px-4">
-          <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-[0_4px_12px_rgba(0,0,0,0.15)] before:absolute before:inset-0 before:rounded-[1.75rem] before:bg-white/15 before:backdrop-blur-0 before:pointer-events-none relative">
-            <div className="p-5">
-              <p className="text-xs font-medium text-muted-foreground">Total balance</p>
-              <p className="mt-2 text-3xl font-extrabold"
-                style={{
-                  color: balances && (balances.totalOwedToYou ?? 0) >= (balances.totalOwed ?? 0)
-                    ? 'hsl(var(--success))'
-                    : 'hsl(var(--destructive))'
-                }}>
-                {currency.format(Math.max(balances?.totalOwed ?? 0, balances?.totalOwedToYou ?? 0))}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{netSummary}</p>
-            </div>
-          </Card>
-        </section>
+        {/* People to Pay (Payables) */}
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h3 className="font-bold text-xs text-white/40 uppercase tracking-[0.2em]">Settlements</h3>
+        </div>
 
-        <section className="mt-6 flex-1 px-4 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.03] shadow-[0_3px_6px_rgba(0,0,0,0.25)] hover:shadow-[0_6px_12px_rgba(0,0,0,0.3)] hover:shadow-purple-200/50"
-              onClick={() => setIsCreateDialogOpen(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Group
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full rounded-2xl py-6 transition-all duration-200 hover:scale-[1.03] shadow-[0_3px_6px_rgba(0,0,0,0.25)] hover:shadow-[0_6px_12px_rgba(0,0,0,0.3)] hover:shadow-purple-200/50"
-              onClick={() => navigate("/join")}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Join Group
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">People to pay</h2>
-          </div>
-          {payables && payables.length > 0 ? (
-            <div className="space-y-3">
-              {payables.map((item) => (
-                <Card
-                  key={item.counterpartyId}
-                  className="flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:bg-accent"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleOpenPayee(item)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleOpenPayee(item);
-                    }
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Pay {item.name}</p>
-                    {item.upiId ? (
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">UPI ID available</p>
-                    ) : (
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">UPI ID not added yet</p>
-                    )}
-                  </div>
-                  <div className="text-right text-xs">
-                    <p className="font-semibold text-destructive">{currency.format(item.amount)}</p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">across all groups</p>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm transition-all duration-200 hover:scale-[1.01]">
-              You don't need to pay anyone right now. 🎉
-            </Card>
-          )}
-        </section>
-
-        <AlertDialog open={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Pay via UPI</AlertDialogTitle>
-              <AlertDialogDescription>
-                {selectedPayee ? (
-                  <span>
-                    You're about to pay <span className="font-semibold text-foreground">{selectedPayee.name}</span>.
-                  </span>
-                ) : (
-                  "Select someone from the list of people to pay."
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {selectedPayee && (
-              <div className="space-y-3 py-2 text-sm">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">Receiver UPI ID</p>
-                  <p className="text-sm font-mono text-foreground">
-                    {selectedPayee.upiId ?? "No UPI ID added"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="upi-amount">
-                    Amount (optional)
-                  </label>
-                  <Input
-                    id="upi-amount"
-                    value={upiAmount}
-                    onChange={(e) => setUpiAmount(e.target.value)}
-                    placeholder={selectedPayee.amount ? selectedPayee.amount.toFixed(2) : "0.00"}
-                    inputMode="decimal"
-                    className="h-9 rounded-2xl"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="upi-note">
-                    Note (optional)
-                  </label>
-                  <Input
-                    id="upi-note"
-                    value={upiNote}
-                    onChange={(e) => setUpiNote(e.target.value)}
-                    placeholder="Dinner, rent, trip..."
-                    className="h-9 rounded-2xl"
-                  />
-                </div>
-                {!selectedPayee.upiId && (
-                  <p className="text-xs text-destructive">
-                    This person hasn't added a UPI ID yet. Ask them to update their profile before paying.
-                  </p>
-                )}
-              </div>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel>Close</AlertDialogCancel>
-              <div className="flex flex-col gap-2 w-full">
-                <AlertDialogAction
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
-                  onClick={handlePayViaUpi}
-                  disabled={!selectedPayee || !selectedPayee.upiId}
-                >
-                  Pay via UPI
-                </AlertDialogAction>
-                {selectedPayee?.upiId && (
-                  <Button
-                    variant="outline"
-                    className="w-full transition-all duration-200 hover:scale-105"
-                    onClick={() => setShowPaymentQR(!showPaymentQR)}
-                  >
-                    {showPaymentQR ? 'Hide QR' : 'Show Payment QR'}
-                  </Button>
-                )}
-              </div>
-            </AlertDialogFooter>
-            {showPaymentQR && selectedPayee?.upiId && (
-              <div className="p-4 border-t pt-4 mt-4">
-                <div className="flex flex-col items-center">
-                  <div className="p-3 bg-white rounded-lg">
-                    <QRCodeSVG
-                      value={`upi://pay?pa=${selectedPayee.upiId}&pn=${encodeURIComponent(selectedPayee.name)}&am=${Number(upiAmount || selectedPayee.amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(upiNote || 'Settling up via SplitStuff')}`}
-                      size={128}
-                      level="H"
-                      includeMargin={true}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Scan this QR code with any UPI app to pay {selectedPayee.name}
-                  </p>
-                </div>
-              </div>
-            )}
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <AlertDialog
-          open={isCreateDialogOpen}
-          onOpenChange={(open) => {
-            setIsCreateDialogOpen(open);
-            if (!open) setNewGroupName("");
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Create a new group</AlertDialogTitle>
-              <AlertDialogDescription>
-                Give your group a clear name so everyone knows what it's for.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="space-y-2 py-2 text-sm">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="group-name">
-                Group name (max 15 characters)
-              </label>
-               <Input
-                 id="group-name"
-                 value={newGroupName}
-                 onChange={(e) => setNewGroupName(e.target.value)}
-                 placeholder="Goa Trip, Roommates, Office lunch..."
-                 className="h-9 rounded-2xl"
-                 maxLength={15}
-                 autoFocus
-               />
-              <p className="text-[10px] text-muted-foreground text-right">
-                {newGroupName.length}/15 characters
-              </p>
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={handleCreateGroup}
-                disabled={!newGroupName.trim()}
+        {payables && payables.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {payables.map((item) => (
+              <div
+                key={item.counterpartyId}
+                className="bg-charcoal p-4 rounded-[24px] flex items-center justify-between border border-white/5 cursor-pointer active:scale-[0.98] transition-all hover:border-white/10"
+                onClick={() => handleOpenPayee(item)}
               >
-                Create group
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-
-
-        <MobileBottomNav />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-white font-bold text-sm">
+                    {getInitials(item.name)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-[15px] text-white">Pay {item.name}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">{item.upiId ? "UPI ID Available" : "No UPI ID"}</p>
+                  </div>
+                </div>
+                <div className="text-right flex flex-col items-end gap-1">
+                  <div className="px-2 py-0.5 rounded-md border border-rose-400/20 bg-rose-400/10">
+                    <p className="text-[10px] text-rose-400 uppercase font-bold tracking-wider leading-none">You Owe</p>
+                  </div>
+                  <p className="font-bold text-white text-lg leading-none">{currency.format(item.amount)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-charcoal/50 border border-white/5 rounded-[24px] p-8 text-center flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-brand mb-3">
+              <span className="material-symbols-outlined">check</span>
+            </div>
+            <p className="text-white font-medium">You're all settled up!</p>
+            <p className="text-white/40 text-xs mt-1">No pending payments.</p>
+          </div>
+        )}
       </main>
+
+      <MobileBottomNav />
+
+      {/* UPI Payment Dialog */}
+      <AlertDialog open={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen}>
+        <AlertDialogContent className="bg-charcoal border-white/10 text-white rounded-[28px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pay {selectedPayee?.name}</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              {selectedPayee?.upiId ? "Pay securely via UPI app." : "This user has not set a UPI ID."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {selectedPayee && (
+            <div className="space-y-4 py-2">
+              <div className="bg-white/5 p-4 rounded-[20px] flex justify-between items-center">
+                <span className="text-sm text-white/60">Amount to Pay</span>
+                <span className="text-xl font-bold text-white">{currency.format(selectedPayee.amount)}</span>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider pl-1">Amount</label>
+                <Input
+                  value={upiAmount}
+                  onChange={(e) => setUpiAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider pl-1">Note</label>
+                <Input
+                  value={upiNote}
+                  onChange={(e) => setUpiNote(e.target.value)}
+                  placeholder="Payment note..."
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter className="flex-col gap-2">
+            <AlertDialogAction
+              className="bg-brand text-white hover:bg-brand/90 w-full rounded-xl h-12"
+              onClick={handlePayViaUpi}
+              disabled={!selectedPayee || !selectedPayee.upiId}
+            >
+              Pay via UPI
+            </AlertDialogAction>
+            {selectedPayee?.upiId && (
+              <Button
+                variant="outline"
+                className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white rounded-xl h-12"
+                onClick={() => setShowPaymentQR(!showPaymentQR)}
+              >
+                {showPaymentQR ? 'Hide QR' : 'Show UPI QR Code'}
+              </Button>
+            )}
+            <AlertDialogCancel className="bg-transparent border-none text-white/40 hover:text-white hover:bg-transparent mt-0">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+
+          {showPaymentQR && selectedPayee?.upiId && (
+            <div className="p-4 border-t border-white/10 pt-4 mt-2 flex flex-col items-center animate-in zoom-in-95">
+              <div className="p-3 bg-white rounded-[20px]">
+                <QRCodeSVG
+                  value={`upi://pay?pa=${selectedPayee.upiId}&pn=${encodeURIComponent(selectedPayee.name)}&am=${Number(upiAmount || selectedPayee.amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(upiNote || 'Settling up via SplitStuff')}`}
+                  size={160}
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+              <p className="text-xs text-brand mt-4 font-bold uppercase tracking-wider">Scan to Pay</p>
+            </div>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Create Group Dialog */}
+      <AlertDialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) setNewGroupName("");
+        }}
+      >
+        <AlertDialogContent className="bg-charcoal border-white/10 text-white rounded-[28px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create Group</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              Give your group a name (e.g., "Goa Trip", "Roommates").
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider pl-1">Group Name</label>
+              <Input
+                id="group-name"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Enter name..."
+                className="bg-white/5 border-white/10 text-white h-12 rounded-xl placeholder:text-white/20"
+                maxLength={15}
+                autoFocus
+              />
+              <p className="text-[10px] text-white/30 text-right">{newGroupName.length}/15</p>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-brand text-white hover:bg-brand/90 rounded-xl"
+              onClick={handleCreateGroup}
+              disabled={!newGroupName.trim()}
+            >
+              Create Group
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

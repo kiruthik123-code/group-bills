@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { AddExpenseDialog } from "@/components/groups/AddExpenseDialog";
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { toast } from "sonner";
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -23,6 +26,37 @@ type Settlement = Pick<Database['public']['Tables']['settlements']['Row'], 'amou
 const GroupsListPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGroupForExpense, setSelectedGroupForExpense] = useState<{ id: string; name: string } | null>(null);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+
+  const handleOpenAddExpense = (id: string, name: string) => {
+    setSelectedGroupForExpense({ id, name });
+    setIsAddExpenseOpen(true);
+  };
+
+  const handleSettle = (balance: number) => {
+    if (Math.abs(balance) < 0.01) {
+      toast("Nothing to settle 🎉", {
+        duration: 2000,
+        style: {
+          background: "#1C1C1E",
+          color: "white",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          borderRadius: "16px",
+        },
+      });
+    } else {
+      // Logic for non-zero balance could be navigation to settlement
+      // For now, let's keep it simple as requested or just show the toast if 0
+      if (balance < 0) {
+        // You owe, maybe navigate to home or payment
+        toast.error("Please settle your dues from the home screen");
+      } else {
+        toast.info("Remind friends to pay you back!");
+      }
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -118,71 +152,185 @@ const GroupsListPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))] font-sans">
-      <main className="mx-auto flex max-w-md flex-col pb-20">
-        <header className="px-4 pt-10 pb-4 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">All Groups</h1>
-          </div>
-          <Button
-            size="sm"
-            className="rounded-full px-4 transition-all duration-200 hover:scale-105"
-            onClick={() => navigate("/join")}
-          >
-            Join group
-          </Button>
-        </header>
+    <div className="relative w-full max-w-md min-h-screen bg-deep-black overflow-hidden flex flex-col mx-auto font-sans text-white selection:bg-brand/30">
+      <div className="absolute top-0 left-0 right-0 h-[300px] z-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top right, rgba(255, 77, 45, 0.1) 0%, transparent 60%)' }}></div>
 
-        <section className="flex-1 px-4">
-          {groups && groups.length > 0 ? (
-            <div className="space-y-3">
-              {groups.map((group) => {
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-[rgba(28,28,30,0.8)] backdrop-blur-[20px] px-6 pt-8 pb-6 flex flex-col gap-6 border-b border-white/5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Your Groups</h1>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate('/join')}
+              className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center active:scale-95 transition-all hover:bg-white/10"
+              title="Join Group"
+            >
+              <span className="material-symbols-outlined text-[24px]">group_add</span>
+            </button>
+            {/* Note: Create Group is usually on Home, but useful here too */}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative group">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-white/70 group-focus-within:text-white transition-colors">search</span>
+          <input
+            type="text"
+            placeholder="Search groups..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-brand border-none rounded-[20px] h-12 pl-12 pr-4 text-sm text-white placeholder:text-white/70 focus:outline-none shadow-lg shadow-brand/20 transition-all font-medium"
+          />
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 px-6 pb-32 pt-4">
+        {groups && groups.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {(() => {
+              const filteredGroups = groups.filter((group) =>
+                group.name.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+
+              if (filteredGroups.length === 0 && searchQuery.trim() !== "") {
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-in fade-in zoom-in duration-300">
+                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-white/20 mb-4">
+                      <span className="material-symbols-outlined text-4xl">search_off</span>
+                    </div>
+                    <h3 className="text-white font-bold text-lg">No groups found</h3>
+                    <p className="text-white/40 text-sm mt-1 max-w-[200px] mx-auto">
+                      Try different keywords or check for typos.
+                    </p>
+                  </div>
+                );
+              }
+
+              return filteredGroups.map((group) => {
                 const net = perGroupNet?.[group.id] ?? 0;
                 const isPositive = net > 0.01;
                 const isNegative = net < -0.01;
                 const label = isPositive ? "you get" : isNegative ? "you owe" : "settled";
                 const amountText = currency.format(Math.abs(net));
 
-                return (
-                  <button
-                    key={group.id}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-2xl bg-card px-4 py-3 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
-                    onClick={() => navigate(`/groups/${group.id}`)}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{group.name}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        Created {new Date(group.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="text-right text-xs">
-                      <p
-                        className={
-                          isPositive
-                            ? "text-success font-semibold"
-                            : isNegative
-                              ? "text-destructive font-semibold"
-                              : "text-muted-foreground"
-                        }
-                      >
-                        {amountText}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">{label}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <Card className="rounded-2xl p-4 text-sm text-muted-foreground shadow-sm transition-all duration-200 hover:scale-[1.02]">
-              No groups yet. Create one from Home.
-            </Card>
-          )}
-        </section>
+                const statusStyles = isPositive
+                  ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/20"
+                  : isNegative
+                    ? "text-rose-600 bg-rose-500/10 border-rose-500/20"
+                    : "text-gray-500 bg-gray-500/10 border-gray-500/20";
 
-        <MobileBottomNav />
+                return (
+                  <SwipeableGroupCard
+                    key={group.id}
+                    group={group}
+                    net={net}
+                    label={label}
+                    amountText={amountText}
+                    statusStyles={statusStyles}
+                    onNavigate={() => navigate(`/groups/${group.id}`)}
+                    onAddExpense={() => handleOpenAddExpense(group.id, group.name)}
+                    onSettle={() => handleSettle(net)}
+                  />
+                );
+              });
+            })()}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 opacity-50">
+            <span className="material-symbols-outlined text-4xl mb-4">groups</span>
+            <p>No groups found</p>
+          </div>
+        )}
       </main>
+
+      <MobileBottomNav />
+
+      {selectedGroupForExpense && (
+        <AddExpenseDialog
+          open={isAddExpenseOpen}
+          onOpenChange={setIsAddExpenseOpen}
+          groupId={selectedGroupForExpense.id}
+          groupName={selectedGroupForExpense.name}
+        />
+      )}
+    </div>
+  );
+};
+
+interface SwipeableGroupCardProps {
+  group: Group;
+  net: number;
+  label: string;
+  amountText: string;
+  statusStyles: string;
+  onNavigate: () => void;
+  onAddExpense: () => void;
+  onSettle: () => void;
+}
+
+const SwipeableGroupCard = ({
+  group,
+  label,
+  amountText,
+  statusStyles,
+  onNavigate,
+  onAddExpense,
+  onSettle,
+}: SwipeableGroupCardProps) => {
+  const x = useMotionValue(0);
+  const opacity = useTransform(x, [-100, -50, 0, 50, 100], [0, 1, 1, 1, 0]);
+  const addOpacity = useTransform(x, [0, 60], [0, 1]);
+  const settleOpacity = useTransform(x, [-60, 0], [1, 0]);
+
+  const onDragEnd = (event: any, info: any) => {
+    if (info.offset.x > 100) {
+      onAddExpense();
+    } else if (info.offset.x < -100) {
+      onSettle();
+    }
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-[24px]">
+      {/* Background Actions */}
+      <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">
+        <motion.div style={{ opacity: addOpacity }} className="flex items-center gap-2 text-emerald-500 font-bold">
+          <span className="material-symbols-outlined">add_circle</span>
+          <span className="text-xs uppercase tracking-wider">Add Expense</span>
+        </motion.div>
+        <motion.div style={{ opacity: settleOpacity }} className="flex items-center gap-2 text-brand font-bold">
+          <span className="text-xs uppercase tracking-wider">Settle Up</span>
+          <span className="material-symbols-outlined">payments</span>
+        </motion.div>
+      </div>
+
+      <motion.button
+        drag="x"
+        dragConstraints={{ left: -100, right: 100 }}
+        dragElastic={0.2}
+        onDragEnd={onDragEnd}
+        style={{ x }}
+        onClick={onNavigate}
+        className="relative w-full bg-floral-white p-4 flex items-center justify-between border border-white/10 hover:border-white/20 active:scale-[0.98] transition-all group shadow-sm z-10"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-[18px] bg-charcoal/5 flex items-center justify-center text-charcoal font-bold text-lg group-hover:bg-brand/10 group-hover:text-brand transition-colors">
+            {group.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="text-left">
+            <h3 className="font-bold text-[15px] text-charcoal group-hover:text-brand transition-colors">{group.name}</h3>
+            <p className="text-[11px] font-medium text-charcoal/40 mt-0.5">
+              Created {new Date(group.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-1.5 min-w-[80px]">
+          <div className={`px-3 py-1.5 rounded-full border flex items-center justify-center ${statusStyles}`}>
+            <p className="text-sm font-bold leading-none">{amountText}</p>
+          </div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-charcoal/30">{label}</p>
+        </div>
+      </motion.button>
     </div>
   );
 };

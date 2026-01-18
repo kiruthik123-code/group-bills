@@ -43,6 +43,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -56,22 +58,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AddExpenseDialog } from "@/components/groups/AddExpenseDialog";
 
-const expenseSchema = z.object({
-  categoryIcon: z.string().min(1, "Please select a category"),
-  title: z.string().min(1, "Title is required"),
-  amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-    message: "Amount must be greater than 0",
-  }),
-  paidBy: z.string().min(1, "Please select who paid"),
-  splitType: z.enum(["equal", "custom"], { message: "Please select a split type" }),
-  description: z
-    .string()
-    .trim()
-    .max(35, "Description must be 35 characters or less")
-    .optional(),
-});
-
+// Expense schema moved to shared component
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
 
@@ -82,14 +71,13 @@ type GroupMember = {
 };
 
 type Expense = Database['public']['Tables']['expenses']['Row'] & {
-  category_icon?: string | null; // Added via migration; may not be present in older typegen
   created_by_user_id?: string; // This field may not exist in remote DB yet
   expense_splits: {
     user_id: string;
     share_amount: number;
   }[];
 };
-type Profile = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name' | 'avatar_url'>;
+type Profile = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name'>;
 
 
 const GroupPage = () => {
@@ -107,20 +95,9 @@ const GroupPage = () => {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
 
-  const form = useForm<z.infer<typeof expenseSchema>>({
-    resolver: zodResolver(expenseSchema),
-    defaultValues: {
-      categoryIcon: "🧾",
-      title: "",
-      amount: "",
-      paidBy: user?.id || "",
-      splitType: "equal",
-      description: "",
-    },
-  });
+  const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
 
-  // State for custom split percentages
-  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
+  // State for custom split percentages moved to dialog
 
   // Fetch group details
   const { data: group, isLoading: isGroupLoading } = useQuery<Database['public']['Tables']['groups']['Row']>({
@@ -156,19 +133,17 @@ const GroupPage = () => {
       // 2. Get profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url")
+        .select("id, full_name")
         .in("id", userIds);
 
       if (profilesError) throw profilesError;
-
-      const profileMap = new Map(profilesData?.map((p: { id: string; full_name: string; avatar_url: string | null }) => [p.id, p]));
 
       return userIds.map((id) => {
         const profile = profilesData?.find((p) => p.id === id);
         return {
           id,
           name: profile?.full_name || "Unknown Member",
-          avatar_url: profile?.avatar_url || null,
+          avatar_url: null,
         };
       });
     },
@@ -191,16 +166,7 @@ const GroupPage = () => {
     enabled: !!groupId,
   });
 
-  // Initialize custom splits when members change
-  useEffect(() => {
-    if (members && members.length > 0) {
-      const initialSplits: Record<string, string> = {};
-      members.forEach(member => {
-        initialSplits[member.id] = "";
-      });
-      setCustomSplits(initialSplits);
-    }
-  }, [members]);
+  // Custom splits initialization moved to dialog
 
   // Need to correct the profiles relationship in the query above if it fails,
   // but looking at types.ts, `paid_by` is a foreign key to `profiles` (implicitly via user_id uuid matching, but not explicitly defined as FK to profiles table in types definition shown). 
@@ -210,75 +176,7 @@ const GroupPage = () => {
 
   // Refined member fetching (already done). Using `members` map for names is safer.
 
-  const createExpenseMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof expenseSchema>) => {
-      if (!groupId || !user || !members) throw new Error("Missing data");
-
-      const amount = parseFloat(values.amount);
-
-      // 1. Create expense
-      const { data: expenseData, error: expenseError } = await supabase
-        .from("expenses")
-        .insert({
-          group_id: groupId,
-          title: values.title,
-          amount: amount,
-          paid_by: values.paidBy,
-          notes: values.description?.trim() || null,
-          category_icon: values.categoryIcon,
-        })
-        .select("id")
-        .single() as { data: { id: string } | null; error: any };
-
-      if (!expenseData) throw new Error("Failed to create expense");
-      if (expenseError) throw expenseError;
-
-      // 2. Create splits based on split type
-      let splits;
-      if (values.splitType === "equal") {
-        const splitAmount = amount / members.length;
-        splits = members.map((member) => ({
-          expense_id: expenseData.id,
-          user_id: member.id,
-          share_amount: splitAmount,
-        }));
-      } else {
-        // custom split
-        splits = members.map((member) => {
-          const percentage = parseFloat(customSplits[member.id] || "0");
-          const shareAmount = (amount * percentage) / 100;
-          return {
-            expense_id: expenseData.id,
-            user_id: member.id,
-            share_amount: shareAmount,
-          };
-        });
-      }
-
-      const { error: splitError } = await supabase.from("expense_splits").insert(splits);
-      if (splitError) throw splitError;
-
-      return expenseData;
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["group_expenses", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["balances"] }); // Update home balances
-      queryClient.invalidateQueries({ queryKey: ["payables"] });
-      setIsAddExpenseOpen(false);
-      form.reset();
-
-      const splitTypeText = variables.splitType === "equal" ? "equally" : "with custom percentages";
-      toast({ title: "Expense added", description: `Split ${splitTypeText} among all members.` });
-    },
-    onError: (error: Error) => {
-      console.error("Expense creation error:", error);
-      toast({
-        title: "Error adding expense",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Expense mutations moved to dialog component
 
   const deleteExpenseMutation = useMutation({
     mutationFn: async (expenseId: string) => {
@@ -306,26 +204,7 @@ const GroupPage = () => {
       });
     },
   });
-  const onSubmit = (values: z.infer<typeof expenseSchema>) => {
-    // Validate custom split percentages if custom split is selected
-    if (values.splitType === "custom" && members) {
-      const totalPercentage = members.reduce((sum, member) => {
-        const percentage = parseFloat(customSplits[member.id] || "0");
-        return sum + (isNaN(percentage) ? 0 : percentage);
-      }, 0);
-
-      if (Math.abs(totalPercentage - 100) > 0.01) { // Allow small floating point differences
-        toast({
-          title: "Invalid split percentages",
-          description: `Custom split percentages must add up to 100%. Current total: ${totalPercentage}%`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    createExpenseMutation.mutate(values);
-  };
+  // onSubmit logic moved to dialog component
 
   const handleShare = async () => {
     if (!group?.invite_code) return;
@@ -496,630 +375,301 @@ const GroupPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_100%_97%),_hsl(280_100%_96%),_hsl(210_100%_97%))]">
-      <div className="mx-auto flex max-w-md flex-col pb-20">
-        {/* Header */}
-        <header className="sticky top-0 z-10 flex items-center justify-between bg-white/50 px-4 py-4 backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="-ml-2 h-9 w-9 rounded-full"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex flex-col">
-              <h1 className="text-lg font-semibold text-foreground leading-tight">{group.name}</h1>
-              <span className="text-xs text-muted-foreground">
-                {members?.length} members
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 w-9 p-0 rounded-full"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={() => setShowInviteDialog(true)}
-                >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Invite
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setShowMembers(!showMembers)}
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  {showMembers ? 'Hide Members' : 'Show Members'}
-                </DropdownMenuItem>
-                {group?.created_by === user?.id && (
-                  <DropdownMenuItem
-                    onClick={() => setIsDissolveDialogOpen(true)}
-                    className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Dissolve Group
-                  </DropdownMenuItem>
-                )}
-                {user?.id !== group?.created_by && (
-                  <DropdownMenuItem
-                    onClick={() => setIsLeaveDialogOpen(true)}
-                    className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Leave Group
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
+    <div className="relative w-full max-w-md min-h-screen bg-deep-black overflow-hidden flex flex-col mx-auto font-sans text-white selection:bg-brand/30">
+      <div className="absolute top-0 left-0 right-0 h-[400px] z-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top center, rgba(255, 77, 45, 0.15) 0%, transparent 70%)' }}></div>
 
-        {/* Dissolve Group Dialog */}
-        <AlertDialog open={isDissolveDialogOpen} onOpenChange={setIsDissolveDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to dissolve this group?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action will permanently delete the group and all its expenses. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button
-                variant="destructive"
-                onClick={handleDissolveGroup}
-              >
-                Dissolve Group
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Leave Group Dialog */}
-        <AlertDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to leave this group?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You will no longer have access to this group and its expenses.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button variant="destructive" onClick={handleLeaveGroup}>
-                Leave Group
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Delete Expense Dialog */}
-        <AlertDialog open={!!expenseToDelete} onOpenChange={(open) => !open && setExpenseToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently remove the expense and its splits from this group.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteExpenseMutation.isPending}>Cancel</AlertDialogCancel>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  if (expenseToDelete) {
-                    deleteExpenseMutation.mutate(expenseToDelete, {
-                      onSettled: () => setExpenseToDelete(null),
-                    });
-                  }
-                }}
-                disabled={deleteExpenseMutation.isPending}
-              >
-                {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Expense Details Dialog */}
-        <Dialog open={!!selectedExpense} onOpenChange={(open) => !open && setSelectedExpense(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>{selectedExpense?.title}</DialogTitle>
-              <DialogDescription>
-                Full details for this expense.
-              </DialogDescription>
-            </DialogHeader>
-            {selectedExpense && (
-              <div className="space-y-3 text-sm">
-                <p>
-                  <span className="font-medium">Paid by:</span>{" "}
-                  {getMemberName(selectedExpense.paid_by)}
-                </p>
-                <p>
-                  <span className="font-medium">Amount:</span>{" "}
-                  {currency.format(selectedExpense.amount)}
-                </p>
-                <p className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>{format(new Date(selectedExpense.created_at), "MMM d, yyyy")}</span>
-                </p>
-                {selectedExpense.notes && (
-                  <div>
-                    <p className="font-medium mb-1">Description</p>
-                    <p className="whitespace-pre-wrap break-all text-muted-foreground max-h-48 overflow-y-auto pr-1">
-                      {selectedExpense.notes}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-        
-        {/* Remove Member Dialog */}
-        <AlertDialog
-          open={!!memberToRemove}
-          onOpenChange={(open) => !open && setMemberToRemove(null)}
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-[rgba(28,28,30,0.7)] backdrop-blur-[20px] px-6 py-4 flex items-center justify-between border-b border-white/5">
+        <button
+          onClick={() => navigate("/")}
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 active:scale-90 transition-transform hover:bg-white/10"
         >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to remove this member?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This member will no longer have access to this group and its expenses.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button
-                variant="destructive"
-                onClick={confirmRemoveMember}
-                disabled={!memberToRemove}
+          <span className="material-symbols-outlined text-white text-[20px]">arrow_back_ios_new</span>
+        </button>
+        <div className="flex flex-col items-center">
+          <h1 className="text-lg font-bold tracking-tight">{group.name}</h1>
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-bold">Group Details</p>
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 active:scale-90 transition-transform hover:bg-white/10">
+              <span className="material-symbols-outlined text-white text-[24px]">more_horiz</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-charcoal border-white/10 text-white">
+            <DropdownMenuItem
+              onClick={() => setShowInviteDialog(true)}
+              className="focus:bg-white/10 focus:text-white"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Invite Member
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setShowMembers(!showMembers)}
+              className="focus:bg-white/10 focus:text-white"
+            >
+              <User className="h-4 w-4 mr-2" />
+              {showMembers ? 'Hide Members' : 'Show Members'}
+            </DropdownMenuItem>
+            {group?.created_by === user?.id && (
+              <DropdownMenuItem
+                onClick={() => setIsDissolveDialogOpen(true)}
+                className="text-red-400 focus:bg-white/5 focus:text-red-400"
               >
-                Remove Member
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                <X className="h-4 w-4 mr-2" />
+                Dissolve Group
+              </DropdownMenuItem>
+            )}
+            {user?.id !== group?.created_by && (
+              <DropdownMenuItem
+                onClick={() => setIsLeaveDialogOpen(true)}
+                className="text-red-400 focus:bg-white/5 focus:text-red-400"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Leave Group
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </header>
 
-        {/* Members List */}
-        {showMembers && (
-          <div className="p-4 border-b bg-white/30 backdrop-blur-sm shadow-inner overflow-x-auto">
-            <h2 className="text-xs font-bold text-muted-foreground mb-4 flex items-center gap-2 px-1 uppercase tracking-wider">
-              <User className="h-3.5 w-3.5" />
-              Members ({members?.length || 0})
-            </h2>
-            <div className="flex flex-wrap gap-5 justify-start">
+      <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 pb-32">
+        <section className="px-6 py-6">
+          <div className="bg-charcoal/50 border border-white/5 rounded-[28px] p-4 flex items-center gap-4 backdrop-blur-sm">
+            <div className="flex -space-x-3 overflow-hidden pl-1">
               {members && members.length > 0 ? (
-                members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex flex-col items-center gap-1.5 group relative animate-in fade-in zoom-in duration-300"
-                    style={{ width: '60px' }}
-                  >
-                    <div className="relative">
-                      <Avatar className={`h-12 w-12 border-2 transition-all duration-300 ${member.id === group?.created_by ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-background'} group-hover:scale-110`}>
-                        <AvatarImage src={member.avatar_url || ""} className="object-cover" />
-                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
-                          {member.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      {/* Creator badge */}
-                      {member.id === group?.created_by && (
-                        <div className="absolute -top-1 -right-1 bg-primary text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm border border-white">
-                          C
-                        </div>
-                      )}
-
-                      {/* Remove member button for creator */}
-                      {group?.created_by === user?.id && member.id !== user?.id && (
-                        <button
-                          className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground border-2 border-white flex items-center justify-center shadow-md hover:bg-destructive/90 transition-all scale-0 group-hover:scale-100"
-                          onClick={() => handleRemoveMember(member.id)}
-                          title="Remove member"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col items-center w-full">
-                      <p className="text-[11px] font-semibold text-foreground text-center truncate w-full group-hover:text-primary transition-colors">
-                        {member.name.split(' ')[0]}
-                      </p>
-                      {member.id === user?.id && (
-                        <span className="text-[9px] text-muted-foreground bg-muted px-1.5 rounded-[3px]">
-                          You
-                        </span>
-                      )}
-                    </div>
+                members.slice(0, 5).map((member) => (
+                  <div key={member.id} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-deep-black text-[11px] font-bold text-white relative">
+                    {member.avatar_url ? (
+                      <AvatarImage src={member.avatar_url} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <div className={`w-full h-full rounded-full flex items-center justify-center ${['bg-indigo-500/20 text-indigo-400', 'bg-rose-500/20 text-rose-400', 'bg-emerald-500/20 text-emerald-400'][Math.abs(member.name.length) % 3]}`}>
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 ))
-              ) : (
-                <p className="text-xs text-muted-foreground text-center py-2 w-full">No members</p>
-              )}
+              ) : null}
+              <button onClick={() => setShowInviteDialog(true)} className="w-10 h-10 rounded-full bg-brand flex items-center justify-center border-2 border-deep-black text-white hover:bg-brand/90 transition-colors z-10">
+                <span className="material-symbols-outlined text-[16px] font-bold">add</span>
+              </button>
+            </div>
+            <div className="h-8 w-px bg-white/10"></div>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Group Size</span>
+              <span className="text-sm font-bold text-white">{members?.length || 0} Members</span>
+            </div>
+          </div>
+        </section>
+
+        {showMembers && (
+          <div className="px-6 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-charcoal p-4 rounded-[20px] border border-white/5 grid grid-cols-4 gap-4">
+              {members?.map(member => (
+                <div key={member.id} className="flex flex-col items-center gap-2 relative">
+                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold relative">
+                    {member.name.charAt(0)}
+                    {member.id === group.created_by && <span className="absolute -top-1 -right-1 w-3 h-3 bg-brand rounded-full border-2 border-charcoal"></span>}
+                  </div>
+                  <span className="text-[9px] text-white/60 truncate w-full text-center">{member.name.split(' ')[0]}</span>
+                  {group.created_by === user?.id && member.id !== user?.id && (
+                    <button onClick={() => handleRemoveMember(member.id)} className="absolute -top-1 -right-1 bg-red-500/20 text-red-500 rounded-full p-0.5">
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Expenses List */}
-        <div className="p-4 space-y-4">
+        <div className="px-6 flex flex-col gap-3">
+          <div className="flex items-center justify-between px-1 mb-2">
+            <h2 className="text-[11px] font-bold text-white/30 uppercase tracking-[0.2em]">Recent Activity</h2>
+            <button className="text-[11px] font-bold text-brand uppercase tracking-wider">Filter</button>
+          </div>
+
           {isExpensesLoading ? (
             <div className="space-y-3">
-              <Skeleton className="h-20 w-full rounded-xl" />
-              <Skeleton className="h-20 w-full rounded-xl" />
-              <Skeleton className="h-20 w-full rounded-xl" />
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-[24px] bg-charcoal" />)}
             </div>
           ) : expenses && expenses.length > 0 ? (
             expenses.map((expense) => {
-              const description = expense.notes?.trim() || "";
-              const maxPreviewLength = 80;
-              const isLongDescription = description.length > maxPreviewLength;
-              const previewText = isLongDescription
-                ? description.slice(0, maxPreviewLength) + "…"
-                : description;
+              // Calculate logic
+              const userSplit = expense.expense_splits?.find(s => s.user_id === user?.id);
+              const isPayer = expense.paid_by === user?.id;
+
+              const statusStyles = isPayer
+                ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+                : "text-rose-400 bg-rose-400/10 border-rose-400/20";
+
+              // Determine icon based on title (simple heuristic)
+              const title = expense.title.toLowerCase();
+              let icon = "receipt";
+              if (title.includes("food") || title.includes("lunch") || title.includes("dinner")) icon = "restaurant";
+              else if (title.includes("transport") || title.includes("taxi") || title.includes("uber")) icon = "local_taxi";
+              else if (title.includes("shopping") || title.includes("grocery")) icon = "shopping_bag";
+              else if (title.includes("movie") || title.includes("entertainment")) icon = "movie";
+
+              let amountDisplay = "";
+              let labelDisplay = "";
+
+              if (isPayer) {
+                const lentAmount = expense.expense_splits?.reduce((acc, split) => split.user_id !== user?.id ? acc + split.share_amount : acc, 0) || 0;
+                amountDisplay = currency.format(lentAmount);
+                labelDisplay = "You get";
+              } else {
+                amountDisplay = currency.format(userSplit?.share_amount || 0);
+                labelDisplay = "You owe";
+              }
 
               return (
-                <Card key={expense.id} className="p-4 rounded-2xl border-0 shadow-sm bg-white/80 backdrop-blur transition-all hover:scale-[1.01]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <span className="text-xl leading-none" aria-hidden>
-                          {(expense as any).category_icon || "🧾"}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{expense.title}</h3>
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{getMemberName(expense.paid_by)}</span> paid {currency.format(expense.amount)}
-                        </p>
-                        <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>{format(new Date(expense.created_at), "MMM d, yyyy")}</span>
-                        </div>
-                        {description && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            <p className="break-words leading-snug">
-                              {description.length > 25 ? (
-                                <>
-                                  {description.slice(0, 25)}…{" "}
-                                  <button
-                                    type="button"
-                                    className="text-primary underline-offset-2 hover:underline"
-                                    onClick={() => setSelectedExpense(expense)}
-                                  >
-                                    See more
-                                  </button>
-                                </>
-                              ) : (
-                                description
-                              )}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      {expense.paid_by === user?.id && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive"
-                          onClick={() => setExpenseToDelete(expense.id)}
-                          disabled={deleteExpenseMutation.isPending}
-                        >
-                          <span className="sr-only">Delete expense</span>
-                          ×
-                        </Button>
-                      )}
-                      <div className="text-right">
-                        {expense.paid_by === user?.id ? (
-                          <>
-                            <p className="font-medium text-emerald-600">You get</p>
-                            <p className="font-bold text-emerald-600">
-                              {currency.format(
-                                expense.expense_splits?.reduce((total, split) => {
-                                  if (split.user_id !== user?.id) {
-                                    return total + split.share_amount;
-                                  }
-                                  return total;
-                                }, 0) || 0,
-                              )}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-medium text-destructive">You owe</p>
-                            <p className="font-bold text-destructive">
-                              {currency.format(
-                                expense.expense_splits?.find((split) => split.user_id === user?.id)?.share_amount || 0,
-                              )}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                <div
+                  key={expense.id}
+                  className="bg-charcoal p-5 rounded-[24px] flex items-center gap-4 border border-white/5 active:scale-[0.98] transition-all cursor-pointer hover:border-white/10"
+                  onClick={() => setSelectedExpense(expense)}
+                >
+                  <div className="w-14 h-14 bg-white/5 rounded-[20px] flex items-center justify-center text-white/70">
+                    <span className="material-symbols-outlined text-2xl">{icon}</span>
                   </div>
-                </Card>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-[15px] text-white truncate">{expense.title}</h3>
+                    <p className="text-xs text-white/40 mt-0.5">Paid by <span className="text-white/70">{expense.paid_by === user?.id ? "You" : getMemberName(expense.paid_by)}</span></p>
+                  </div>
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <div className={`px-2 py-0.5 rounded-md border ${statusStyles}`}>
+                      <p className="text-[10px] font-bold uppercase tracking-tighter leading-none">{labelDisplay}</p>
+                    </div>
+                    <p className="text-lg font-bold text-white leading-none">{amountDisplay}</p>
+                  </div>
+                </div>
               );
             })
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="rounded-full bg-muted p-4">
-                <Receipt className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">No expenses yet</h3>
-              <p className="text-sm text-muted-foreground max-w-[200px]">
-                Add an expense to start splitting bills with your group.
-              </p>
+            <div className="text-center py-10 opacity-50">
+              <p className="text-sm">No expenses yet.</p>
             </div>
           )}
         </div>
+      </main>
 
-        {/* FAB */}
-        <div className="fixed bottom-6 right-6 z-20">
-          <Button
-            size="icon"
-            className="h-14 w-14 rounded-full shadow-xl shadow-primary/30 transition-transform hover:scale-105 active:scale-95"
-            onClick={() => setIsAddExpenseOpen(true)}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </div>
-
-        {/* Add Expense Dialog */}
-        <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add Expense</DialogTitle>
-              <DialogDescription>
-                Split a bill equally with everyone in the group.
-              </DialogDescription>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                <FormField
-                  control={form.control}
-                  name="categoryIcon"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choose a category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="🍽️">🍽️ Food</SelectItem>
-                          <SelectItem value="🛒">🛒 Groceries</SelectItem>
-                          <SelectItem value="🚕">🚕 Travel</SelectItem>
-                          <SelectItem value="🏠">🏠 Rent</SelectItem>
-                          <SelectItem value="💡">💡 Electricity</SelectItem>
-                          <SelectItem value="📶">📶 Internet</SelectItem>
-                          <SelectItem value="🎬">🎬 Entertainment</SelectItem>
-                          <SelectItem value="🛍️">🛍️ Shopping</SelectItem>
-                          <SelectItem value="🏥">🏥 Medical</SelectItem>
-                          <SelectItem value="⛽">⛽ Fuel</SelectItem>
-                          <SelectItem value="🎉">🎉 Party</SelectItem>
-                          <SelectItem value="🧾">🧾 Bills</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Dinner, Taxi, Groceries..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => {
-                    const currentLength = field.value?.length ?? 0;
-                    const maxLength = 35;
-
-                    return (
-                      <FormItem>
-                        <FormLabel className="flex items-center justify-between">
-                          <span>Description</span>
-                          <span className="text-xs font-normal text-muted-foreground">Optional · Max {maxLength} chars</span>
-                        </FormLabel>
-                        <FormControl>
-                          <div className="space-y-1">
-                            <textarea
-                              className="flex min-h-[60px] w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                              placeholder="Add a note about this expense (optional)"
-                              maxLength={maxLength}
-                              {...field}
-                            />
-                            <div className="flex justify-end text-xs text-muted-foreground">
-                              {currentLength}/{maxLength}
-                            </div>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Amount</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground">₹</span>
-                          <Input className="pl-7" placeholder="0.00" type="number" step="0.01" {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="paidBy"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Paid By</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select who paid" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {!members || members.length === 0 ? (
-                            <div className="p-2 text-sm text-muted-foreground text-center">
-                              No members found.
-                            </div>
-                          ) : (
-                            members.map((member) => (
-                              <SelectItem key={member.id} value={member.id}>
-                                {member.name} {member.id === user?.id ? "(You)" : ""}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="splitType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Split Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select split type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="equal">Equal Split</SelectItem>
-                          <SelectItem value="custom">Custom Split</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Custom Split Inputs - only show when custom split is selected */}
-                {form.watch("splitType") === "custom" && (
-                  <div className="space-y-3 pt-2">
-                    <FormLabel>Custom Split Percentages</FormLabel>
-                    {members?.map((member) => (
-                      <div key={member.id} className="flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{member.name}</p>
-                        </div>
-                        <div className="relative w-20">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            placeholder="0"
-                            value={customSplits[member.id] || ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setCustomSplits(prev => ({
-                                ...prev,
-                                [member.id]: value
-                              }));
-                            }}
-                            className="pl-6 pr-2 py-1.5 text-sm"
-                          />
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">%</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsAddExpenseOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createExpenseMutation.isPending}>
-                    {createExpenseMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add Expense
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Invite Members Dialog */}
-        <AlertDialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Invite Members to {group?.name}</AlertDialogTitle>
-              <AlertDialogDescription>
-                Share this invite code with others to join your group.
-              </AlertDialogDescription>
-              <div className="flex items-center space-x-2">
-                <Input
-                  value={group?.invite_code || ""}
-                  readOnly
-                  className="font-mono text-center"
-                />
-                <Button
-                  onClick={() => {
-                    navigator.clipboard.writeText(group?.invite_code || "");
-                    toast({
-                      title: "Copied to clipboard",
-                      description: "Invite code copied to clipboard!"
-                    });
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  Copy
-                </Button>
-              </div>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Close</AlertDialogCancel>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <div className="fixed bottom-28 right-6 z-50">
+        <button
+          onClick={() => setIsAddExpenseOpen(true)}
+          className="bg-brand w-16 h-16 rounded-full shadow-2xl shadow-brand/40 flex items-center justify-center active:scale-90 transition-transform hover:bg-brand/90"
+        >
+          <span className="material-symbols-outlined text-white text-[32px] font-bold">add</span>
+        </button>
       </div>
-    </div>
+
+
+
+      {/* Keeping existing Dialogs functionality with updated styles where possible or just hiding styling details for now */}
+      <AddExpenseDialog
+        open={isAddExpenseOpen}
+        onOpenChange={setIsAddExpenseOpen}
+        groupId={groupId || ""}
+        groupName={group?.name || ""}
+      />
+
+      {/* Invite Dialog */}
+      <AlertDialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <AlertDialogContent className="bg-charcoal border-white/10 text-white rounded-[24px]">
+          {/* Styled Invite Content */}
+          <div className="flex flex-col items-center gap-4 text-center py-4">
+            <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center text-brand mb-2">
+              <Share2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold">Invite Friends</h3>
+            <p className="text-sm text-white/50">Share this code with your friends to join <strong>{group.name}</strong></p>
+            <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 flex flex-col items-center gap-2 mt-2">
+              <p className="text-[10px] font-bold text-brand uppercase tracking-widest">Group Code</p>
+              <p className="text-3xl font-mono font-bold tracking-widest">{group.invite_code}</p>
+            </div>
+            <Button onClick={() => { navigator.clipboard.writeText(group.invite_code); toast({ title: "Copied!" }); }} className="w-full bg-brand hover:bg-brand/90 rounded-xl h-12 mt-2">
+              Copy Invite Code
+            </Button>
+          </div>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogCancel className="bg-transparent border-none text-white/40 hover:text-white hover:bg-transparent">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Other Utils Dialogs (Leave, Dissolve, Delete) - Kept basic styled */}
+      <AlertDialog open={isDissolveDialogOpen} onOpenChange={setIsDissolveDialogOpen}>
+        <AlertDialogContent className="bg-charcoal border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dissolve Group?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60">
+              Action cannot be undone. All data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
+            <Button variant="destructive" onClick={handleDissolveGroup}>Dissolve</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>
+        <AlertDialogContent className="bg-charcoal border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Group?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60">
+              You will lose access to this group.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
+            <Button variant="destructive" onClick={handleLeaveGroup}>Leave</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!expenseToDelete} onOpenChange={(open) => !open && setExpenseToDelete(null)}>
+        <AlertDialogContent className="bg-charcoal border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Expense?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
+            <Button variant="destructive" onClick={() => { if (expenseToDelete) deleteExpenseMutation.mutate(expenseToDelete); }}>Delete</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Expense Detail View */}
+      <Dialog open={!!selectedExpense} onOpenChange={(open) => !open && setSelectedExpense(null)}>
+        <DialogContent className="bg-charcoal border-white/10 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedExpense?.title}</DialogTitle>
+            <DialogDescription className="text-white/50">{format(new Date(selectedExpense?.created_at || new Date()), "PPP")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <span className="text-white/60">Amount</span>
+              <span className="text-2xl font-bold text-white">{currency.format(selectedExpense?.amount || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-white/60">Paid by</span>
+              <span className="font-bold">{getMemberName(selectedExpense?.paid_by || "")}</span>
+            </div>
+            {selectedExpense?.paid_by === user?.id && (
+              <Button variant="destructive" className="w-full" onClick={() => { setExpenseToDelete(selectedExpense?.id || null); setSelectedExpense(null); }}>
+                Delete Expense
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+    </div >
   );
 };
 
