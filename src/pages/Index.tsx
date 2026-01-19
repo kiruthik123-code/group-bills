@@ -326,8 +326,9 @@ const Index = () => {
       <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 px-6 pb-32">
         {/* Greeting */}
         <div className="mb-6 animate-in slide-in-from-bottom-2 fade-in duration-500">
-          <h1 className="text-3xl font-bold">Hello, <span className="text-brand">{profile?.full_name?.split(' ')[0] || "Friend"}</span></h1>
-          <p className="text-white/40 text-sm mt-1">Welcome back!</p>
+          <h1 className="text-3xl font-bold">
+            Hello, <span className="text-brand">{profile?.full_name?.split(" ")[0] || "Friend"}</span>
+          </h1>
         </div>
 
         {/* Balance Card */}
@@ -335,33 +336,43 @@ const Index = () => {
           const net = (balances?.totalOwedToYou || 0) - (balances?.totalOwed || 0);
           const isNetPositive = net > 0.01;
           const isNetNegative = net < -0.01;
-          const cardBgColor = isNetPositive ? "bg-emerald-500" : isNetNegative ? "bg-rose-500" : "bg-brand";
-          const cardShadowColor = isNetPositive ? "shadow-emerald-500/20" : isNetNegative ? "shadow-rose-500/20" : "shadow-brand/20";
+
+          const netColor = isNetPositive ? "text-success" : isNetNegative ? "text-destructive" : "text-white";
 
           return (
-            <div className={`w-full h-auto rounded-[32px] p-6 flex flex-col justify-between relative overflow-hidden mb-8 group transition-all hover:scale-[1.02] shadow-2xl ${cardShadowColor} animate-in zoom-in-95 duration-500 delay-100`}>
-              <div className={`absolute inset-0 ${cardBgColor} opacity-100`}></div>
+            <div className="w-full h-auto rounded-[32px] p-6 flex flex-col justify-between relative overflow-hidden mb-8 group transition-all hover:scale-[1.02] shadow-2xl shadow-brand/20 animate-in zoom-in-95 duration-500 delay-100">
+              {/* Keep the bar color consistent (brand) */}
+              <div className="absolute inset-0 bg-brand opacity-100" />
+
               <div className="relative z-10 mb-6">
                 <p className="text-white/80 font-medium text-sm">Total Net Balance</p>
-                <h2 className="text-4xl font-bold mt-1 text-white">
-                  {currency.format(Math.abs(net))}
-                </h2>
-                <p className="text-white/70 text-xs mt-1 font-medium bg-white/20 inline-block px-2 py-0.5 rounded-lg backdrop-blur-md">
+
+                <div className="mt-1 inline-flex items-end gap-2">
+                  <h2 className={`text-4xl font-bold text-white drop-shadow-sm`}>
+                    <span className={`inline-block rounded-xl px-2 py-1 bg-black/20 backdrop-blur-sm ${netColor}`}>
+                      {currency.format(Math.abs(net))}
+                    </span>
+                  </h2>
+                </div>
+
+                <p className="text-white/70 text-xs mt-2 font-medium bg-white/20 inline-block px-2 py-0.5 rounded-lg backdrop-blur-md">
                   {netSummary}
                 </p>
               </div>
+
               <div className="relative z-10 flex gap-4">
                 <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
                   <div className="flex items-center gap-1 mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-white/70">arrow_outward</span>
-                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Owe</p>
+                    <span className="material-symbols-outlined text-[16px] text-destructive">arrow_outward</span>
+                    <p className="text-[10px] uppercase font-bold text-destructive tracking-wider">You Owe</p>
                   </div>
                   <p className="text-lg font-bold text-white">{currency.format(balances?.totalOwed || 0)}</p>
                 </div>
+
                 <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
                   <div className="flex items-center gap-1 mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-white/70">call_received</span>
-                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Get</p>
+                    <span className="material-symbols-outlined text-[16px] text-success">call_received</span>
+                    <p className="text-[10px] uppercase font-bold text-success tracking-wider">You Get</p>
                   </div>
                   <p className="text-lg font-bold text-white">{currency.format(balances?.totalOwedToYou || 0)}</p>
                 </div>
