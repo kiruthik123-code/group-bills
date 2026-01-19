@@ -363,18 +363,18 @@ const Index = () => {
               <div className="relative z-10 flex gap-4">
                 <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
                   <div className="flex items-center gap-1 mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-destructive">arrow_outward</span>
-                    <p className="text-[10px] uppercase font-bold text-destructive tracking-wider">You Owe</p>
+                    <span className="material-symbols-outlined text-[16px] text-white/70">arrow_outward</span>
+                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Owe</p>
                   </div>
-                  <p className="text-lg font-bold text-white">{currency.format(balances?.totalOwed || 0)}</p>
+                  <p className="text-lg font-bold text-destructive">{currency.format(balances?.totalOwed || 0)}</p>
                 </div>
 
                 <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
                   <div className="flex items-center gap-1 mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-success">call_received</span>
-                    <p className="text-[10px] uppercase font-bold text-success tracking-wider">You Get</p>
+                    <span className="material-symbols-outlined text-[16px] text-white/70">call_received</span>
+                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Get</p>
                   </div>
-                  <p className="text-lg font-bold text-white">{currency.format(balances?.totalOwedToYou || 0)}</p>
+                  <p className="text-lg font-bold text-success">{currency.format(balances?.totalOwedToYou || 0)}</p>
                 </div>
               </div>
             </div>
