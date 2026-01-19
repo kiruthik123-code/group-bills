@@ -95,8 +95,6 @@ const GroupPage = () => {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
 
-  const [showMembers, setShowMembers] = useState(false); // Start with members hidden by default
-
   // State for custom split percentages moved to dialog
 
   // Fetch group details
