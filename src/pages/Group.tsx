@@ -56,7 +56,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AddExpenseDialog } from "@/components/groups/AddExpenseDialog";
 
@@ -67,7 +66,6 @@ const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "
 type GroupMember = {
   id: string;
   name: string;
-  avatar_url: string | null;
 };
 
 type Expense = Database['public']['Tables']['expenses']['Row'] & {
@@ -141,7 +139,6 @@ const GroupPage = () => {
         return {
           id,
           name: profile?.full_name || "Unknown Member",
-          avatar_url: null,
         };
       });
     },
@@ -441,18 +438,29 @@ const GroupPage = () => {
             <div className="flex -space-x-3 overflow-hidden pl-1">
               {members && members.length > 0 ? (
                 members.slice(0, 5).map((member) => (
-                  <div key={member.id} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-deep-black text-[11px] font-bold text-white relative">
-                    {member.avatar_url ? (
-                      <AvatarImage src={member.avatar_url} className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      <div className={`w-full h-full rounded-full flex items-center justify-center ${['bg-indigo-500/20 text-indigo-400', 'bg-rose-500/20 text-rose-400', 'bg-emerald-500/20 text-emerald-400'][Math.abs(member.name.length) % 3]}`}>
-                        {member.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                  <div
+                    key={member.id}
+                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-deep-black text-[11px] font-bold text-white relative"
+                    aria-label={member.name}
+                  >
+                    <div
+                      className={`w-full h-full rounded-full flex items-center justify-center ${
+                        [
+                          "bg-indigo-500/20 text-indigo-400",
+                          "bg-rose-500/20 text-rose-400",
+                          "bg-emerald-500/20 text-emerald-400",
+                        ][Math.abs(member.name.length) % 3]
+                      }`}
+                    >
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
                   </div>
                 ))
               ) : null}
-              <button onClick={() => setShowInviteDialog(true)} className="w-10 h-10 rounded-full bg-brand flex items-center justify-center border-2 border-deep-black text-white hover:bg-brand/90 transition-colors z-10">
+              <button
+                onClick={() => setShowInviteDialog(true)}
+                className="w-10 h-10 rounded-full bg-brand flex items-center justify-center border-2 border-deep-black text-white hover:bg-brand/90 transition-colors z-10"
+              >
                 <span className="material-symbols-outlined text-[16px] font-bold">add</span>
               </button>
             </div>

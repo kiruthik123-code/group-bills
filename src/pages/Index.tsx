@@ -19,7 +19,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Users } from "lucide-react";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });

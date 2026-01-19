@@ -49,7 +49,6 @@ const expenseSchema = z.object({
 type GroupMember = {
     id: string;
     name: string;
-    avatar_url: string | null;
 };
 
 interface AddExpenseDialogProps {
@@ -114,7 +113,6 @@ export const AddExpenseDialog = ({ open, onOpenChange, groupId, groupName }: Add
                 return {
                     id,
                     name: profile?.full_name || "Unknown Member",
-                    avatar_url: null,
                 };
             });
         },
