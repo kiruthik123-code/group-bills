@@ -8,26 +8,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Search, Filter, Edit2, BarChart2, PieChart } from "lucide-react";
+import { Plus, Calendar, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
-
+ 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
-
+ 
 type IndividualExpense = {
   id: string;
   user_id: string;
@@ -37,10 +22,7 @@ type IndividualExpense = {
   category: string;
   description: string;
 };
-
-const categories = ["Food", "Transport", "Shopping", "Entertainment", "Utilities", "Health", "Other"];
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
-
+ 
 const IndividualExpensesPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -48,19 +30,14 @@ const IndividualExpensesPage = () => {
   const { toast } = useToast();
   
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<IndividualExpense | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("All");
-  const [showChart, setShowChart] = useState(false);
-
-  const [formData, setFormData] = useState({
+  const [newExpense, setNewExpense] = useState({
     title: "",
     amount: "",
     date: new Date().toISOString().split('T')[0],
     category: "Other",
     description: ""
   });
-
+ 
   // Fetch individual expenses
   const { data: expenses, isLoading } = useQuery({
     queryKey: ["individual-expenses", user?.id],
@@ -96,7 +73,13 @@ const IndividualExpensesPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["individual-expenses", user?.id] });
       setShowAddForm(false);
-      resetForm();
+      setNewExpense({
+        title: "",
+        amount: "",
+        date: new Date().toISOString().split('T')[0],
+        category: "Other",
+        description: ""
+      });
       toast({
         title: "Expense added",
         description: "Your individual expense has been recorded."
@@ -105,41 +88,6 @@ const IndividualExpensesPage = () => {
     onError: (error: Error) => {
       toast({
         title: "Failed to add expense",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Mutation to update expense
-  const updateExpenseMutation = useMutation({
-    mutationFn: async (expense: IndividualExpense) => {
-      const { error } = await (supabase as any)
-        .from("individual_expenses")
-        .update({
-          title: expense.title,
-          amount: expense.amount,
-          date: expense.date,
-          category: expense.category,
-          description: expense.description
-        })
-        .eq("id", expense.id);
-      
-      if (error) throw error;
-      return expense;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["individual-expenses", user?.id] });
-      setEditingExpense(null);
-      resetForm();
-      toast({
-        title: "Expense updated",
-        description: "Your expense has been updated."
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to update expense",
         description: error.message,
         variant: "destructive"
       });
@@ -172,19 +120,9 @@ const IndividualExpensesPage = () => {
     }
   });
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      amount: "",
-      date: new Date().toISOString().split('T')[0],
-      category: "Other",
-      description: ""
-    });
-  };
-
-  const handleSaveExpense = (e: React.FormEvent) => {
+  const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.amount) {
+    if (!newExpense.title || !newExpense.amount) {
       toast({
         title: "Missing fields",
         description: "Please fill in both title and amount",
@@ -193,56 +131,17 @@ const IndividualExpensesPage = () => {
       return;
     }
     
-    if (editingExpense) {
-      updateExpenseMutation.mutate({
-        ...editingExpense,
-        title: formData.title,
-        amount: parseFloat(formData.amount),
-        date: formData.date,
-        category: formData.category,
-        description: formData.description,
-      });
-    } else {
-      addExpenseMutation.mutate({
-        title: formData.title,
-        amount: parseFloat(formData.amount),
-        date: formData.date,
-        category: formData.category,
-        description: formData.description,
-        user_id: user!.id,
-      });
-    }
-  };
-
-  const startEdit = (expense: IndividualExpense) => {
-    setEditingExpense(expense);
-    setFormData({
-      title: expense.title,
-      amount: expense.amount.toString(),
-      date: expense.date,
-      category: expense.category,
-      description: expense.description || ""
+    addExpenseMutation.mutate({
+      title: newExpense.title,
+      amount: parseFloat(newExpense.amount),
+      date: newExpense.date,
+      category: newExpense.category,
+      description: newExpense.description,
+      user_id: user.id!,
     });
   };
 
-  const filteredExpenses = expenses?.filter(expense => {
-    const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          expense.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "All" || expense.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  }) || [];
-
-  const chartData = filteredExpenses.reduce((acc, curr) => {
-    const existing = acc.find(item => item.name === curr.category);
-    if (existing) {
-      existing.value += curr.amount;
-    } else {
-      acc.push({ name: curr.category, value: curr.amount });
-    }
-    return acc;
-  }, [] as { name: string, value: number }[]);
-
-  const totalSpent = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const categories = ["Food", "Transport", "Shopping", "Entertainment", "Utilities", "Health", "Other"];
 
   if (loading) {
     return (
@@ -263,7 +162,7 @@ const IndividualExpensesPage = () => {
         {/* Header */}
         <header className="sticky top-0 z-10 bg-white/50 px-4 py-4 backdrop-blur-md border-b">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -276,83 +175,116 @@ const IndividualExpensesPage = () => {
               </Button>
               <h1 className="text-xl font-bold text-foreground">My Expenses</h1>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setShowChart(!showChart)}>
-               {showChart ? <BarChart2 className="h-5 w-5 text-primary" /> : <PieChart className="h-5 w-5" />}
-            </Button>
           </div>
         </header>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4">
           {/* Summary Card */}
-          <Card className="p-5 rounded-2xl border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-lg">
+          <Card className="p-5 mb-6 rounded-2xl border-0 bg-gradient-to-br from-[hsl(210_100%_97%)] via-[hsl(280_100%_96%)] to-[hsl(210_100%_97%)] shadow-lg">
             <p className="text-xs font-medium text-muted-foreground">Total spent</p>
             <p className="mt-2 text-3xl font-extrabold text-primary">
-              {currency.format(totalSpent)}
+              {currency.format(expenses?.reduce((sum, expense) => sum + expense.amount, 0) || 0)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {filteredExpenses.length} expenses tracked
+              {expenses?.length || 0} expenses tracked
             </p>
           </Card>
 
-          {/* Chart Section */}
-          {showChart && chartData.length > 0 && (
-            <Card className="p-4 rounded-2xl overflow-hidden">
-              <h3 className="text-sm font-semibold mb-4">Expenses by Category</h3>
-              <div className="h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
-                    <RechartsTooltip 
-                      formatter={(value: number) => [currency.format(value), "Amount"]}
-                      cursor={{ fill: 'transparent' }}
-                    />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          )}
-
-          {/* Search and Filter */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search expenses..." 
-                className="pl-9 rounded-xl"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[110px] rounded-xl">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All</SelectItem>
-                {categories.map(cat => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Add Expense Button */}
-          <Button
-            className="w-full py-6 rounded-2xl shadow-md transition-all duration-200 hover:scale-[1.02]"
-            onClick={() => {
-              resetForm();
-              setShowAddForm(true);
-            }}
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Add Individual Expense
-          </Button>
+          <div className="mb-6">
+            {!showAddForm ? (
+              <Button
+                className="w-full py-6 rounded-2xl transition-all duration-200 hover:scale-[1.02]"
+                onClick={() => setShowAddForm(true)}
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Add Individual Expense
+              </Button>
+            ) : (
+              <Card className="p-4 mb-4 rounded-2xl">
+                <form onSubmit={handleAddExpense} className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      placeholder="Dinner, Groceries, etc."
+                      value={newExpense.title}
+                      onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
+                      className="mt-1 rounded-xl"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="amount">Amount</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={newExpense.amount}
+                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                        className="mt-1 rounded-xl"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="date">Date</Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={newExpense.date}
+                        onChange={(e) => setNewExpense({...newExpense, date: e.target.value})}
+                        className="mt-1 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <select
+                      id="category"
+                      value={newExpense.category}
+                      onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                      className="w-full mt-1 rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="description">Description (optional)</Label>
+                    <Input
+                      id="description"
+                      placeholder="Additional details..."
+                      value={newExpense.description}
+                      onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                      className="mt-1 rounded-xl"
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 rounded-xl"
+                      onClick={() => setShowAddForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1 rounded-xl"
+                      disabled={addExpenseMutation.isPending}
+                    >
+                      {addExpenseMutation.isPending ? "Adding..." : "Add"}
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            )}
+          </div>
 
           {/* Expenses List */}
           <div>
@@ -360,18 +292,17 @@ const IndividualExpensesPage = () => {
             
             {isLoading ? (
               <p className="text-muted-foreground">Loading expenses...</p>
-            ) : filteredExpenses.length > 0 ? (
+            ) : expenses && expenses.length > 0 ? (
               <div className="space-y-3">
-                {filteredExpenses.map((expense) => (
+                {expenses.map((expense) => (
                   <Card 
                     key={expense.id} 
-                    className="flex items-center justify-between p-4 rounded-2xl shadow-sm transition-all duration-200 hover:scale-[1.01] cursor-pointer"
-                    onClick={() => startEdit(expense)}
+                    className="flex items-center justify-between p-4 rounded-2xl shadow-sm transition-all duration-200 hover:scale-[1.01]"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-foreground">{expense.title}</p>
-                        <Badge variant="secondary" className="text-xs pointer-events-none">
+                        <Badge variant="secondary" className="text-xs">
                           {expense.category}
                         </Badge>
                       </div>
@@ -379,137 +310,34 @@ const IndividualExpensesPage = () => {
                         {new Date(expense.date).toLocaleDateString()}
                       </p>
                       {expense.description && (
-                        <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">{expense.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{expense.description}</p>
                       )}
                     </div>
-                    <div className="text-right flex items-center gap-2">
+                    <div className="text-right">
                       <p className="font-semibold text-primary">
                         {currency.format(expense.amount)}
                       </p>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteExpenseMutation.mutate(expense.id);
-                        }}
+                        className="h-6 w-6 p-0 mt-1 text-destructive hover:text-destructive"
+                        onClick={() => deleteExpenseMutation.mutate(expense.id)}
                         disabled={deleteExpenseMutation.isPending}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </Card>
                 ))}
               </div>
             ) : (
-              <Card className="p-6 rounded-2xl text-center border-dashed">
-                <p className="text-muted-foreground">No expenses found</p>
-                <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters</p>
+              <Card className="p-6 rounded-2xl text-center">
+                <p className="text-muted-foreground">No expenses recorded yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Add your first individual expense to get started</p>
               </Card>
             )}
           </div>
         </div>
-
-        {/* Add/Edit Dialog */}
-        <Dialog open={showAddForm || !!editingExpense} onOpenChange={(open) => {
-          if (!open) {
-            setShowAddForm(false);
-            setEditingExpense(null);
-          }
-        }}>
-          <DialogContent className="sm:max-w-md rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingExpense ? "Edit Expense" : "Add New Expense"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSaveExpense} className="space-y-4 pt-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  placeholder="Dinner, Groceries, etc."
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  className="mt-1 rounded-xl"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                    className="mt-1 rounded-xl"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                    className="mt-1 rounded-xl"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({...formData, category: value})}
-                >
-                  <SelectTrigger className="w-full mt-1 rounded-xl">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="description">Description (optional)</Label>
-                <Input
-                  id="description"
-                  placeholder="Additional details..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="mt-1 rounded-xl"
-                />
-              </div>
-              
-              <DialogFooter className="flex gap-2 sm:gap-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1 rounded-xl"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setEditingExpense(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 rounded-xl"
-                  disabled={addExpenseMutation.isPending || updateExpenseMutation.isPending}
-                >
-                  {addExpenseMutation.isPending || updateExpenseMutation.isPending ? "Saving..." : "Save"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
       </main>
     </div>
   );

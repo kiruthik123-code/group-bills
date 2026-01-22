@@ -57,22 +57,11 @@ const AuthPage = () => {
         toast({ title: "Welcome back", description: "You are now signed in." });
       }
       navigate("/", { replace: true });
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      let title = "Authentication failed";
-      let description = error.message || "Please check your details and try again.";
-
-      if (error.message === "Invalid login credentials") {
-        title = "Invalid credentials";
-        description = "Please check your email and password.";
-      } else if (error.message?.includes("already registered")) {
-        title = "Account already exists";
-        description = "Please sign in instead.";
-      }
-
+    } catch (error) {
+      const message = (error as Error).message ?? "Please check your details and try again.";
       toast({
-        title,
-        description,
+        title: "Authentication failed",
+        description: message,
         variant: "destructive",
       });
     }
