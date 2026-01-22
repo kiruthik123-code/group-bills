@@ -23,18 +23,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-            <Routes>
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/" element={<Index />} />
-              <Route path="/groups" element={<GroupsListPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/groups/:groupId" element={<GroupPage />} />
-              <Route path="/join" element={<JoinGroupPage />} />
-              <Route path="/join/:code" element={<JoinGroupPage />} />
-              <Route path="/upi-payment" element={<UpiPaymentPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+          <Routes>
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/" element={<Index />} />
+            <Route path="/groups" element={<GroupsListPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/groups/:groupId" element={<GroupPage />} />
+            <Route path="/join" element={<JoinGroupPage />} />
+            <Route path="/join/:code" element={<JoinGroupPage />} />
+            <Route path="/upi-payment" element={<UpiPaymentPage />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
