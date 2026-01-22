@@ -59,6 +59,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AddExpenseDialog } from "@/components/groups/AddExpenseDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GroupChat } from "@/components/groups/GroupChat";
 
 // Expense schema moved to shared component
 
@@ -487,11 +489,20 @@ const GroupPage = () => {
           </div>
         )}
 
-        <div className="px-6 flex flex-col gap-3">
-          <div className="flex items-center justify-between px-1 mb-2">
-            <h2 className="text-[11px] font-bold text-white/30 uppercase tracking-[0.2em]">Recent Activity</h2>
-            <button className="text-[11px] font-bold text-brand uppercase tracking-wider">Filter</button>
+        <Tabs defaultValue="expenses" className="w-full flex flex-col">
+          <div className="px-6 mb-2">
+            <TabsList className="w-full grid grid-cols-2 bg-charcoal border border-white/5 h-10 p-1">
+              <TabsTrigger value="expenses" className="text-xs data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/50">Expenses</TabsTrigger>
+              <TabsTrigger value="chat" className="text-xs data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/50">Chat</TabsTrigger>
+            </TabsList>
           </div>
+
+          <TabsContent value="expenses" className="mt-0">
+            <div className="px-6 flex flex-col gap-3">
+              <div className="flex items-center justify-between px-1 mb-2">
+                <h2 className="text-[11px] font-bold text-white/30 uppercase tracking-[0.2em]">Recent Activity</h2>
+                <button className="text-[11px] font-bold text-brand uppercase tracking-wider">Filter</button>
+              </div>
 
           {isExpensesLoading ? (
             <div className="space-y-3">
@@ -554,7 +565,13 @@ const GroupPage = () => {
               <p className="text-sm">No expenses yet.</p>
             </div>
           )}
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="chat" className="mt-0 h-full">
+            <GroupChat groupId={groupId!} />
+          </TabsContent>
+        </Tabs>
       </main>
 
       <div className="fixed bottom-28 right-6 z-50">
