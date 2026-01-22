@@ -307,27 +307,26 @@ const Index = () => {
   };
 
   return (
-    <div className="relative w-full max-w-md min-h-screen bg-deep-black overflow-hidden flex flex-col mx-auto font-sans text-white selection:bg-brand/30">
-      <div className="absolute top-0 left-0 right-0 h-[500px] z-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top left, rgba(255, 77, 45, 0.15) 0%, transparent 70%)' }}></div>
+    <div className="relative w-full max-w-md min-h-screen bg-fintech-bg overflow-hidden flex flex-col mx-auto font-sans text-white selection:bg-fintech-orange/30">
+      <div className="absolute top-0 left-0 right-0 h-[500px] z-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top left, rgba(255, 90, 44, 0.08) 0%, transparent 70%)' }}></div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 px-6 py-6 flex items-center justify-between">
-        <div className="w-10 h-10 rounded-full bg-charcoal border border-white/10 flex items-center justify-center overflow-hidden">
+      <header className="sticky top-0 z-40 px-6 py-6 flex items-center justify-between bg-fintech-bg/80 backdrop-blur-md">
+        <div className="w-10 h-10 rounded-full bg-fintech-card border border-fintech-border flex items-center justify-center overflow-hidden">
           {/* Using Initials Avatar */}
-          <div className="font-bold text-brand text-sm">{getInitials(profile?.full_name || "User")}</div>
+          <div className="font-bold text-fintech-orange text-sm">{getInitials(profile?.full_name || "User")}</div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold tracking-tight">SplitStuff</span>
+          <span className="text-lg font-bold tracking-tight">Splitster</span>
         </div>
         <div className="w-10"></div>
       </header>
 
       <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 px-6 pb-32">
         {/* Greeting */}
-        <div className="mb-6 animate-in slide-in-from-bottom-2 fade-in duration-500">
-          <h1 className="text-3xl font-bold">
-            Hello, <span className="text-brand">{profile?.full_name?.split(" ")[0] || "Friend"}</span>
-          </h1>
+        <div className="mb-8 animate-in slide-in-from-bottom-2 fade-in duration-500">
+          <h1 className="text-2xl font-semibold tracking-tight">Hello, <span className="text-fintech-orange">{profile?.full_name?.split(' ')[0] || "Friend"}</span></h1>
+          <p className="text-fintech-muted text-[13px] mt-1 font-medium">Welcome back!</p>
         </div>
 
         {/* Balance Card */}
@@ -335,45 +334,36 @@ const Index = () => {
           const net = (balances?.totalOwedToYou || 0) - (balances?.totalOwed || 0);
           const isNetPositive = net > 0.01;
           const isNetNegative = net < -0.01;
-
-          const netColor = isNetPositive ? "text-success" : isNetNegative ? "text-destructive" : "text-white";
+          const cardBgColor = isNetPositive ? "bg-emerald-600" : isNetNegative ? "bg-rose-600" : "bg-fintech-orange";
+          const cardShadowColor = isNetPositive ? "shadow-emerald-900/10" : isNetNegative ? "shadow-rose-900/10" : "shadow-orange-900/10";
 
           return (
-            <div className="w-full h-auto rounded-[32px] p-6 flex flex-col justify-between relative overflow-hidden mb-8 group transition-all hover:scale-[1.02] shadow-2xl shadow-brand/20 animate-in zoom-in-95 duration-500 delay-100">
-              {/* Keep the bar color consistent (brand) */}
-              <div className="absolute inset-0 bg-brand opacity-100" />
-
-              <div className="relative z-10 mb-6">
-                <p className="text-white/80 font-medium text-sm">Total Net Balance</p>
-
-                <div className="mt-1 inline-flex items-end gap-2">
-                  <h2 className={`text-4xl font-bold text-white drop-shadow-sm`}>
-                    <span className={`inline-block rounded-xl px-2 py-1 bg-black/20 backdrop-blur-sm ${netColor}`}>
-                      {currency.format(Math.abs(net))}
-                    </span>
-                  </h2>
-                </div>
-
-                <p className="text-white/70 text-xs mt-2 font-medium bg-white/20 inline-block px-2 py-0.5 rounded-lg backdrop-blur-md">
+            <div className={`w-full h-auto rounded-[24px] px-7 py-8 flex flex-col justify-between relative overflow-hidden mb-10 group transition-all hover:scale-[1.01] shadow-xl ${cardShadowColor} animate-in zoom-in-95 duration-500 delay-100`}>
+              <div className={`absolute inset-0 ${cardBgColor} opacity-100`}></div>
+              <div className="relative z-10 mb-8 px-1">
+                <p className="text-white/80 font-medium text-[13px] tracking-wide uppercase">Total Net Balance</p>
+                <h2 className="text-[42px] font-bold mt-2 text-white leading-tight">
+                  {currency.format(Math.abs(net))}
+                </h2>
+                <div className="mt-4 text-white/90 text-[11px] font-bold bg-black/20 inline-block px-4 py-1.5 rounded-full backdrop-blur-md uppercase tracking-wider">
                   {netSummary}
-                </p>
+                </div>
               </div>
 
               <div className="relative z-10 flex gap-4">
-                <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-white/70">arrow_outward</span>
-                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Owe</p>
+                <div className="bg-black/15 rounded-[18px] px-5 py-4 flex-1 backdrop-blur-sm border border-white/5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="material-symbols-outlined text-[14px] text-white/60">arrow_outward</span>
+                    <p className="text-[9px] uppercase font-bold text-white/60 tracking-widest">You Owe</p>
                   </div>
-                  <p className="text-lg font-bold text-destructive">{currency.format(balances?.totalOwed || 0)}</p>
+                  <p className="text-[19px] font-bold text-white">{currency.format(balances?.totalOwed || 0)}</p>
                 </div>
-
-                <div className="bg-black/20 rounded-[20px] px-4 py-3 flex-1 backdrop-blur-sm border border-white/10">
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-white/70">call_received</span>
-                    <p className="text-[10px] uppercase font-bold text-white/70 tracking-wider">You Get</p>
+                <div className="bg-black/15 rounded-[18px] px-5 py-4 flex-1 backdrop-blur-sm border border-white/5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="material-symbols-outlined text-[14px] text-white/60">call_received</span>
+                    <p className="text-[9px] uppercase font-bold text-white/60 tracking-widest">You Get</p>
                   </div>
-                  <p className="text-lg font-bold text-success">{currency.format(balances?.totalOwedToYou || 0)}</p>
+                  <p className="text-[19px] font-bold text-white">{currency.format(balances?.totalOwedToYou || 0)}</p>
                 </div>
               </div>
             </div>
@@ -384,23 +374,23 @@ const Index = () => {
         <div className="flex gap-3 mb-8 overflow-x-auto no-scrollbar pb-2">
           <button
             onClick={() => setIsCreateDialogOpen(true)}
-            className="flex-1 whitespace-nowrap bg-brand text-white rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-brand/90 transition-all active:scale-95 font-bold text-sm shadow-lg shadow-brand/20"
+            className="flex-1 whitespace-nowrap bg-fintech-orange text-white rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-fintech-orange/90 transition-all active:scale-95 font-bold text-sm shadow-lg shadow-fintech-orange/10"
           >
             <span className="material-symbols-outlined text-xl">add</span>
             Create Group
           </button>
           <button
             onClick={() => navigate('/join')}
-            className="flex-1 whitespace-nowrap bg-white text-charcoal rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-white/90 transition-all active:scale-95 font-bold text-sm shadow-lg"
+            className="flex-1 whitespace-nowrap bg-fintech-card text-white border border-fintech-border rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-fintech-border transition-all active:scale-95 font-bold text-sm"
           >
-            <span className="material-symbols-outlined text-xl">group_add</span>
+            <span className="material-symbols-outlined text-xl text-fintech-orange">group_add</span>
             Join Group
           </button>
         </div>
 
         {/* People to Pay (Payables) */}
         <div className="flex items-center justify-between mb-4 px-1">
-          <h3 className="font-bold text-xs text-white/40 uppercase tracking-[0.2em]">Settlements</h3>
+          <h3 className="font-bold text-[10px] text-fintech-muted uppercase tracking-[0.2em]">Settlements</h3>
         </div>
 
         {payables && payables.length > 0 ? (
@@ -408,21 +398,21 @@ const Index = () => {
             {payables.map((item) => (
               <div
                 key={item.counterpartyId}
-                className="bg-charcoal p-4 rounded-[24px] flex items-center justify-between border border-white/5 cursor-pointer active:scale-[0.98] transition-all hover:border-white/10"
+                className="bg-fintech-card p-4 rounded-[16px] flex items-center justify-between border border-fintech-border cursor-pointer active:scale-[0.98] transition-all hover:border-fintech-orange/30"
                 onClick={() => handleOpenPayee(item)}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-11 h-11 rounded-full bg-fintech-border flex items-center justify-center text-fintech-orange font-bold text-sm">
                     {getInitials(item.name)}
                   </div>
                   <div>
-                    <p className="font-bold text-[15px] text-white">Pay {item.name}</p>
-                    <p className="text-[11px] text-white/40 mt-0.5">{item.upiId ? "UPI ID Available" : "No UPI ID"}</p>
+                    <p className="font-semibold text-[15px] text-white">{item.name}</p>
+                    <p className="text-[11px] text-fintech-muted mt-0.5">{item.upiId ? "UPI ID Available" : "Payment ID needed"}</p>
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end gap-1">
-                  <div className="px-2 py-0.5 rounded-md border border-rose-400/20 bg-rose-400/10">
-                    <p className="text-[10px] text-rose-400 uppercase font-bold tracking-wider leading-none">You Owe</p>
+                  <div className="px-3 py-1 rounded-full bg-fintech-orange/10">
+                    <p className="text-[10px] text-fintech-orange uppercase font-bold tracking-wider leading-none">You Owe</p>
                   </div>
                   <p className="font-bold text-white text-lg leading-none">{currency.format(item.amount)}</p>
                 </div>
@@ -430,12 +420,12 @@ const Index = () => {
             ))}
           </div>
         ) : (
-          <div className="bg-charcoal/50 border border-white/5 rounded-[24px] p-8 text-center flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-brand mb-3">
-              <span className="material-symbols-outlined">check</span>
+          <div className="bg-fintech-card border border-fintech-border rounded-[24px] py-16 px-8 text-center flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-fintech-border flex items-center justify-center text-fintech-orange mb-6">
+              <span className="material-symbols-outlined text-3xl">check</span>
             </div>
-            <p className="text-white font-medium">You're all settled up!</p>
-            <p className="text-white/40 text-xs mt-1">No pending payments.</p>
+            <p className="text-white font-semibold text-lg">You're all settled up!</p>
+            <p className="text-fintech-muted text-sm mt-2 max-w-[180px]">No pending payments at the moment.</p>
           </div>
         )}
       </main>
