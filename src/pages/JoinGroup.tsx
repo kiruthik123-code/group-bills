@@ -38,19 +38,24 @@ const JoinGroupPage = () => {
 
       const trimmed = code.trim().toUpperCase();
       if (!trimmed) {
-        throw new Error("Enter an invite code to join a group.");
+        throw new Error("Please enter an invite code.");
       }
 
+      // 1. Lookup the group by invite code
       const { data: groupLookup, error: groupError } = await supabase
         .rpc("lookup_group_by_invite", { invite_code_param: trimmed })
         .maybeSingle();
 
-      if (groupError) throw groupError;
-      if (!groupLookup) {
-        throw new Error("Invalid or expired code.");
+      if (groupError) {
+        console.error("Group lookup error:", groupError);
+        throw new Error("Unable to verify invite code. Please try again.");
       }
 
-      // Check if user is already a member of this group
+      if (!groupLookup) {
+        throw new Error("This invite code is invalid or has expired.");
+      }
+
+      // 2. Check if user is already a member - Objective: Prevent duplicate joins
       const { data: existingMembership, error: membershipCheckError } = await supabase
         .from("group_members")
         .select("id")
@@ -59,48 +64,55 @@ const JoinGroupPage = () => {
         .maybeSingle();
 
       if (membershipCheckError) {
-        console.error("Error checking existing membership:", membershipCheckError);
-        // Continue with join attempt
+        console.error("Membership check error:", membershipCheckError);
+        // Continue but be cautious
       }
 
       if (existingMembership) {
-        // User is already a member, navigate to the group
+        // Requirement: If already a member, clearly say: "You’re already in this group"
         toast({
           title: "Already a member",
-          description: `You're already a member of "${groupLookup.name}"`,
+          description: `You're already in this group: "${groupLookup.name}"`,
         });
         navigate(`/groups/${groupLookup.id}`);
-        return;
+        return groupLookup;
       }
 
+      // 3. Join the group
       const { error: memberError } = await supabase
         .from("group_members")
-        .insert({ group_id: groupLookup.id, user_id: user.id });
+        .insert({
+          group_id: groupLookup.id,
+          user_id: user.id
+          // Initialize any required existing fields to safe defaults (No new fields needed for group_members)
+        });
 
-      if (memberError && memberError.code !== "23505") {
-        // 23505 = unique_violation (already a member)
-        throw memberError;
+      if (memberError) {
+        if (memberError.code === "23505") {
+          // Double check for race conditions
+          return groupLookup;
+        }
+        console.error("Join member error:", memberError);
+        throw new Error("Failed to join group. Please try again.");
       }
 
       return groupLookup;
     },
-    onSuccess: (result) => {
-      // Since we return early if user is already a member, 
-      // this callback only runs when successfully joining
-      // We need to get the group info again
-      const group = result || {};
-      if (result && typeof result === 'object' && 'name' in result && 'id' in result) {
+    onSuccess: (groupLookup) => {
+      // Success feedback
+      if (groupLookup && groupLookup.id) {
         toast({
-          title: "Joined group",
-          description: `You're now a member of "${result.name}"`,
+          title: "Success!",
+          description: `You've successfully joined "${groupLookup.name}"`,
         });
-        navigate(`/groups/${result.id}`);
+        // Sync group data immediately by navigating
+        navigate(`/groups/${groupLookup.id}`, { replace: true });
       }
     },
     onError: (error: Error) => {
       toast({
         title: "Could not join group",
-        description: error.message ?? "Please check the code and try again.",
+        description: error.message || "An unexpected error occurred.",
         variant: "destructive",
       });
     },
