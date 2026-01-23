@@ -444,13 +444,12 @@ const GroupPage = () => {
                     aria-label={member.name}
                   >
                     <div
-                      className={`w-full h-full rounded-full flex items-center justify-center ${
-                        [
+                      className={`w-full h-full rounded-full flex items-center justify-center ${[
                           "bg-indigo-500/20 text-indigo-400",
                           "bg-rose-500/20 text-rose-400",
                           "bg-emerald-500/20 text-emerald-400",
                         ][Math.abs(member.name.length) % 3]
-                      }`}
+                        }`}
                     >
                       {member.name.charAt(0).toUpperCase()}
                     </div>

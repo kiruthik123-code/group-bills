@@ -1,59 +1,56 @@
-import { Link, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 export const MobileBottomNav = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const getIsActive = (path: string) => {
-    if (path === "/" && location.pathname === "/") return true;
-    if (path === "/groups" && (location.pathname === "/groups" || location.pathname.startsWith("/groups/"))) return true;
-    if (path === "/profile" && location.pathname === "/profile") return true;
-    return false;
-  };
-
-  const navItems = [
-    { path: "/groups", icon: "groups", label: "Groups" },
+  const tabs = [
+    { path: "/groups", icon: "group", label: "Groups" },
     { path: "/", icon: "home", label: "Home" },
-    { path: "/profile", icon: "person", label: "Profile" },
+    { path: "/tracking", icon: "account_balance_wallet", label: "Tracking" },
   ];
 
+  const activeTab = tabs.find(tab => {
+    if (tab.path === "/" && location.pathname === "/") return true;
+    if (tab.path === "/groups" && (location.pathname === "/groups" || location.pathname.startsWith("/groups/"))) return true;
+    if (tab.path === "/tracking" && (location.pathname === "/tracking" || location.pathname === "/insights" || location.pathname === "/tracking/history")) return true;
+    return false;
+  }) || tabs[1]; // Default to Home if none match
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 px-6 pb-6 pt-2 pointer-events-none flex justify-center">
-      <div className="w-full bg-[#1F1F1F]/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-white/5 flex items-center justify-around pointer-events-auto shadow-2xl relative overflow-hidden">
-        {navItems.map((item) => {
-          const isActive = getIsActive(item.path);
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-48px)] max-w-md h-20 z-50 pointer-events-none">
+      <nav className="h-full w-full bg-[#1A1C1F] border border-white/5 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-around px-2 pointer-events-auto relative overflow-hidden">
+        {tabs.map((tab) => {
+          const isActive = activeTab.path === tab.path;
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="relative flex items-center justify-center w-12 h-12 transition-colors duration-300"
+            <button
+              key={tab.path}
+              onClick={() => navigate(tab.path)}
+              className="relative flex-1 flex items-center justify-center h-full transition-all duration-300 z-10"
             >
+              <span
+                className={cn(
+                  "material-symbols-outlined text-2xl relative z-20 transition-colors duration-300",
+                  isActive ? "text-white font-bold" : "text-white/40"
+                )}
+                style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+              >
+                {tab.icon}
+              </span>
+
               {isActive && (
                 <motion.div
                   layoutId="nav-pill"
-                  className="absolute inset-0 bg-brand rounded-full shadow-[0_0_20px_rgba(255,77,45,0.4)]"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  className="absolute size-14 bg-[#E8552C] rounded-full z-10"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               )}
-              <motion.span
-                animate={{
-                  scale: isActive ? 1.1 : 1,
-                  color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                }}
-                className={cn(
-                  "material-symbols-outlined text-2xl relative z-10",
-                  isActive && "font-bold"
-                )}
-                style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
-              >
-                {item.icon}
-              </motion.span>
-            </Link>
+            </button>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 };
-

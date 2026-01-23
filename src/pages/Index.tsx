@@ -311,7 +311,7 @@ const Index = () => {
       <div className="absolute top-0 left-0 right-0 h-[500px] z-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top left, rgba(255, 90, 44, 0.08) 0%, transparent 70%)' }}></div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 px-6 py-6 flex items-center justify-between bg-fintech-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 px-6 py-5 flex items-center justify-between bg-fintech-bg/80 backdrop-blur-md">
         <div className="w-10 h-10 rounded-full bg-fintech-card border border-fintech-border flex items-center justify-center overflow-hidden">
           {/* Using Initials Avatar */}
           <div className="font-bold text-fintech-orange text-sm">{getInitials(profile?.full_name || "User")}</div>
@@ -324,11 +324,9 @@ const Index = () => {
 
       <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 px-6 pb-32">
         {/* Greeting */}
-        <div className="mb-8 animate-in slide-in-from-bottom-2 fade-in duration-500">
+        <div className="mb-4 animate-in slide-in-from-bottom-2 fade-in duration-500">
           <h1 className="text-2xl font-semibold tracking-tight">Hello, <span className="text-fintech-orange">{profile?.full_name?.split(' ')[0] || "Friend"}</span></h1>
-          <p className="text-fintech-muted text-[13px] mt-1 font-medium">Welcome back!</p>
         </div>
-
         {/* Balance Card */}
         {(() => {
           const net = (balances?.totalOwedToYou || 0) - (balances?.totalOwed || 0);
@@ -338,32 +336,32 @@ const Index = () => {
           const cardShadowColor = isNetPositive ? "shadow-emerald-900/10" : isNetNegative ? "shadow-rose-900/10" : "shadow-orange-900/10";
 
           return (
-            <div className={`w-full h-auto rounded-[24px] px-7 py-8 flex flex-col justify-between relative overflow-hidden mb-10 group transition-all hover:scale-[1.01] shadow-xl ${cardShadowColor} animate-in zoom-in-95 duration-500 delay-100`}>
+            <div className={`w-full h-auto rounded-[24px] px-6 py-6 flex flex-col justify-between relative overflow-hidden mb-7 group transition-all hover:scale-[1.01] shadow-xl ${cardShadowColor} animate-in zoom-in-95 duration-500 delay-100`}>
               <div className={`absolute inset-0 ${cardBgColor} opacity-100`}></div>
-              <div className="relative z-10 mb-8 px-1">
-                <p className="text-white/80 font-medium text-[13px] tracking-wide uppercase">Total Net Balance</p>
-                <h2 className="text-[42px] font-bold mt-2 text-white leading-tight">
+              <div className="relative z-10 mb-5 px-1">
+                <p className="text-white/80 font-medium text-[12px] tracking-wide uppercase">Total Net Balance</p>
+                <h2 className="text-[36px] font-bold mt-1 text-white leading-tight">
                   {currency.format(Math.abs(net))}
                 </h2>
-                <div className="mt-4 text-white/90 text-[11px] font-bold bg-black/20 inline-block px-4 py-1.5 rounded-full backdrop-blur-md uppercase tracking-wider">
+                <div className="mt-3 text-white/90 text-[10px] font-bold bg-black/20 inline-block px-3 py-1.5 rounded-full backdrop-blur-md uppercase tracking-wider">
                   {netSummary}
                 </div>
               </div>
 
-              <div className="relative z-10 flex gap-4">
-                <div className="bg-black/15 rounded-[18px] px-5 py-4 flex-1 backdrop-blur-sm border border-white/5">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="material-symbols-outlined text-[14px] text-white/60">arrow_outward</span>
-                    <p className="text-[9px] uppercase font-bold text-white/60 tracking-widest">You Owe</p>
+              <div className="relative z-10 flex gap-3">
+                <div className="bg-black/15 rounded-[18px] px-4 py-3.5 flex-1 backdrop-blur-sm border border-white/5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="material-symbols-outlined text-[13px] text-white/60">arrow_outward</span>
+                    <p className="text-[8px] uppercase font-bold text-white/60 tracking-widest">You Owe</p>
                   </div>
-                  <p className="text-[19px] font-bold text-white">{currency.format(balances?.totalOwed || 0)}</p>
+                  <p className="text-[17px] font-bold text-white">{currency.format(balances?.totalOwed || 0)}</p>
                 </div>
-                <div className="bg-black/15 rounded-[18px] px-5 py-4 flex-1 backdrop-blur-sm border border-white/5">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="material-symbols-outlined text-[14px] text-white/60">call_received</span>
-                    <p className="text-[9px] uppercase font-bold text-white/60 tracking-widest">You Get</p>
+                <div className="bg-black/15 rounded-[18px] px-4 py-3.5 flex-1 backdrop-blur-sm border border-white/5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="material-symbols-outlined text-[13px] text-white/60">call_received</span>
+                    <p className="text-[8px] uppercase font-bold text-white/60 tracking-widest">You Get</p>
                   </div>
-                  <p className="text-[19px] font-bold text-white">{currency.format(balances?.totalOwedToYou || 0)}</p>
+                  <p className="text-[17px] font-bold text-white">{currency.format(balances?.totalOwedToYou || 0)}</p>
                 </div>
               </div>
             </div>
@@ -371,7 +369,7 @@ const Index = () => {
         })()}
 
         {/* Quick Actions */}
-        <div className="flex gap-3 mb-8 overflow-x-auto no-scrollbar pb-2">
+        <div className="flex gap-3 mb-7 overflow-x-auto no-scrollbar pb-2">
           <button
             onClick={() => setIsCreateDialogOpen(true)}
             className="flex-1 whitespace-nowrap bg-fintech-orange text-white rounded-full py-3 px-6 flex items-center justify-center gap-2 hover:bg-fintech-orange/90 transition-all active:scale-95 font-bold text-sm shadow-lg shadow-fintech-orange/10"
@@ -389,7 +387,7 @@ const Index = () => {
         </div>
 
         {/* People to Pay (Payables) */}
-        <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center justify-between mb-3.5 px-1">
           <h3 className="font-bold text-[10px] text-fintech-muted uppercase tracking-[0.2em]">Settlements</h3>
         </div>
 
@@ -398,23 +396,23 @@ const Index = () => {
             {payables.map((item) => (
               <div
                 key={item.counterpartyId}
-                className="bg-fintech-card p-4 rounded-[16px] flex items-center justify-between border border-fintech-border cursor-pointer active:scale-[0.98] transition-all hover:border-fintech-orange/30"
+                className="bg-fintech-card p-3 rounded-[14px] flex items-center justify-between border border-fintech-border cursor-pointer active:scale-[0.98] transition-all hover:border-fintech-orange/30"
                 onClick={() => handleOpenPayee(item)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-full bg-fintech-border flex items-center justify-center text-fintech-orange font-bold text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-fintech-border flex items-center justify-center text-fintech-orange font-bold text-sm">
                     {getInitials(item.name)}
                   </div>
                   <div>
-                    <p className="font-semibold text-[15px] text-white">{item.name}</p>
-                    <p className="text-[11px] text-fintech-muted mt-0.5">{item.upiId ? "UPI ID Available" : "Payment ID needed"}</p>
+                    <p className="font-semibold text-[14px] text-white">{item.name}</p>
+                    <p className="text-[10px] text-fintech-muted mt-0.5">{item.upiId ? "UPI ID Available" : "Payment ID needed"}</p>
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end gap-1">
-                  <div className="px-3 py-1 rounded-full bg-fintech-orange/10">
-                    <p className="text-[10px] text-fintech-orange uppercase font-bold tracking-wider leading-none">You Owe</p>
+                  <div className="px-2 py-0.5 rounded-full bg-fintech-orange/10">
+                    <p className="text-[9px] text-fintech-orange uppercase font-bold tracking-wider leading-none">You Owe</p>
                   </div>
-                  <p className="font-bold text-white text-lg leading-none">{currency.format(item.amount)}</p>
+                  <p className="font-bold text-white text-[17px] leading-none">{currency.format(item.amount)}</p>
                 </div>
               </div>
             ))}

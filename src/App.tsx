@@ -11,8 +11,10 @@ import JoinGroupPage from "./pages/JoinGroup";
 import ProfilePage from "./pages/Profile";
 import GroupsListPage from "./pages/GroupsList";
 import UpiPaymentPage from "./pages/UpiPayment";
+import PersonalTrackingPage from "./pages/PersonalTracking";
+import InsightsPage from "./pages/Insights";
+import ExpenseHistoryPage from "./pages/ExpenseHistory";
 import { AuthProvider } from "./contexts/AuthContext";
-
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,9 @@ const App = () => (
             <Route path="/join" element={<JoinGroupPage />} />
             <Route path="/join/:code" element={<JoinGroupPage />} />
             <Route path="/upi-payment" element={<UpiPaymentPage />} />
+            <Route path="/tracking" element={<PersonalTrackingPage />} />
+            <Route path="/tracking/history" element={<ExpenseHistoryPage />} />
+            <Route path="/insights" element={<InsightsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
